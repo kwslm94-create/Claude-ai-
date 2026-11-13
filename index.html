@@ -224,6 +224,45 @@ details summary{cursor:pointer;font-weight:800;margin:10px 0}
 .spinner{width:40px;height:40px;border-radius:50%;border:5px solid #d8c7a2;border-top-color:var(--wood);animation:spin 1s linear infinite;margin:14px auto}
 @keyframes spin{to{transform:rotate(360deg)}}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#3a2412;color:#fff3d6;padding:12px 18px;border-radius:12px;z-index:100;font-weight:800;box-shadow:0 6px 18px rgba(0,0,0,.4);max-width:92vw;text-align:center}
+
+/* ---------- v4: excitement ---------- */
+.rain{position:fixed;inset:0;pointer-events:none;z-index:200;overflow:hidden}
+.coin.drop{position:absolute;top:-8vh;animation-name:fall;animation-timing-function:linear;animation-fill-mode:forwards}
+@keyframes fall{to{transform:translateY(118vh) rotate(720deg)}}
+.flash{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:210;font-family:var(--title);font-size:clamp(2.4rem,8vw,6.5rem);color:#ffd75a;text-shadow:0 4px 0 #6b3d0a,0 0 30px rgba(0,0,0,.65);animation:flashin 2s forwards;pointer-events:none;white-space:nowrap}
+.flash.bad{color:#ff9a90}
+@keyframes flashin{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%) scale(1)}}
+.qover.dark{background:rgba(20,12,4,.82)}
+.countbox{text-align:center;color:#fff3d6}
+.countbox .tag{font-family:var(--title);font-size:clamp(2.6rem,6vw,5rem);text-shadow:0 3px 0 rgba(0,0,0,.4)}
+.cb-hint{font-size:clamp(1.2rem,2.4vw,2rem);font-weight:900}
+.count{font-size:clamp(8rem,30vh,17rem);font-weight:900;color:#ffd75a;text-shadow:0 6px 0 #6b3d0a;animation:pop .9s ease-out;line-height:1.05}
+.pcard .count{font-size:9rem;color:#c8920f}
+@keyframes pop{0%{transform:scale(2.3);opacity:0}40%{transform:scale(.9);opacity:1}100%{transform:scale(1)}}
+.shake{animation:shake .5s}
+@keyframes shake{20%,60%{transform:translateX(-12px)}40%,80%{transform:translateX(12px)}}
+.timer{display:inline-block;background:#3a2412;color:#ffe08a;border-radius:10px;padding:2px 14px;font-variant-numeric:tabular-nums;font-weight:900}
+.treasure-title{font-family:var(--title);font-size:clamp(2.2rem,5vw,4rem);color:#9a6f07;margin:4px 0;animation:pop .8s}
+.ship-row .rank{font-weight:900;width:1.4em;text-align:center;color:var(--ink-soft)}
+.ship-row.leader{border-color:var(--gold);background:#fff1bf}
+.crown{display:inline-block;animation:bob 1.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.setup-ships{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:6px 0 16px}
+.setup-ships div{display:flex;flex-direction:column;align-items:center;font-weight:900}
+.setup-ships .ship{width:64px}
+.dock .meta{font-size:.85em;color:var(--ink-soft)}
+.dock.waiting{opacity:.45;border-style:dashed}
+.dock.joined{border-color:var(--green);background:#eef8e8}
+.shipgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:10px}
+.shipbtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px;border-radius:14px;border:3px solid #b58d5c;background:#fffaf0;cursor:pointer;font-weight:900;font-size:1.25em}
+.shipbtn small{font-size:.65em;color:var(--ink-soft)}
+.shipbtn .ship{width:96px}
+.shipbtn:disabled{opacity:.4;cursor:not-allowed}
+.shipbtn:active:not(:disabled){transform:scale(.96)}
+.phead .sp{flex:1}
+.phead .coins{margin-left:0}
+.mute{min-width:44px}
+.topbar .mute,.hero .mute{color:#fff3d6;border-color:#c9a46e}
 </style>
 </head>
 <body>
@@ -2574,14 +2613,14 @@ const norm = s => String(s||'').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]
 
 /* Messages travel through a public MQTT relay over a normal secure web connection
    (works on school Wi-Fi and mobile data, no accounts). The first relay that
-   answers is used; its number travels in the join link as b=… */
+   The main screen listens on every relay; each phone keeps the first relay that reaches it. */
 const BROKERS = [
   {url:'wss://broker.emqx.io:8084/mqtt'},
   {url:'wss://broker.hivemq.com:8884/mqtt'},
   {url:'wss://public.cloud.shiftr.io', username:'public', password:'public'},
   {url:'wss://test.mosquitto.org:8081/mqtt'}
 ];
-function brokerList(){ const o = params.get('broker'); return o ? [{url:o}] : BROKERS; }
+function brokerList(){ const o = params.get('broker'); return o ? o.split(',').map(url => ({url})) : BROKERS; }
 const topicBase = code => 'treasure-voyage/v2/' + code.toLowerCase() + '/';
 function mqttOpts(b, clientId, extra){
   const o = Object.assign({clientId, clean:true, keepalive:20, connectTimeout:7000, reconnectPeriod:2000, protocolVersion:4}, extra||{});
@@ -2665,47 +2704,110 @@ function chestSVG(){
 const coinsHTML = n => `<span class="coins"><span class="coin"></span>${n}</span>`;
 
 /* ======================================================================
+   SOUND & EFFECTS (all synthesized, no files)
+   ====================================================================== */
+const SFX = (() => {
+  let ctx = null, muted = !!store.get('tv.mute', false);
+  function ac(){
+    if(!ctx){ try{ ctx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ return null; } }
+    if(ctx.state === 'suspended'){ try{ ctx.resume(); }catch(e){} }
+    return ctx;
+  }
+  document.addEventListener('pointerdown', () => ac(), {passive:true});
+  function tone(f, t0, dur, type, vol, f2){
+    const c = ac(); if(!c || muted) return;
+    const now = c.currentTime + t0, o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(f, now);
+    if(f2) o.frequency.exponentialRampToValueAtTime(f2, now + dur);
+    g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(vol || 0.15, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    o.connect(g); g.connect(c.destination); o.start(now); o.stop(now + dur + 0.05);
+  }
+  function noise(t0, dur, vol){
+    const c = ac(); if(!c || muted) return;
+    const len = Math.max(1, Math.floor(c.sampleRate * dur)), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = (Math.random()*2 - 1) * (1 - i/len);
+    const s = c.createBufferSource(), g = c.createGain(), f = c.createBiquadFilter();
+    s.buffer = buf; f.type = 'lowpass'; f.frequency.value = 900; g.gain.value = vol || 0.15;
+    s.connect(f); f.connect(g); g.connect(c.destination); s.start(c.currentTime + t0);
+  }
+  const P = {
+    join(){ tone(660,0,.12,'triangle',.18); tone(990,.1,.18,'triangle',.18); },
+    drum(){ for(let i=0;i<9;i++) noise(i*.07,.06,.22); tone(196,.65,.25,'square',.1); },
+    tick(){ noise(0,.12,.28); tone(880,0,.09,'square',.08); },
+    go(){ [523,659,784,1047].forEach((f,i)=>tone(f,i*.08,.28,'sawtooth',.09)); noise(0,.25,.25); },
+    answered(){ tone(1250,0,.07,'sine',.1); },
+    correct(){ [659,784,988,1319,1568].forEach((f,i)=>tone(f,i*.08,.35,'triangle',.2)); },
+    wrong(){ tone(233,0,.35,'sawtooth',.12,110); tone(220,.05,.35,'square',.06,105); },
+    coins(){ for(let i=0;i<12;i++) tone(1400+Math.random()*1000, i*.055, .14, 'sine', .12); },
+    steal(){ tone(760,0,.45,'sawtooth',.12,160); tone(300,.4,.35,'square',.09,200); noise(.4,.3,.2); },
+    fanfare(){ [[523,0],[659,.16],[784,.32],[1047,.5],[784,.72],[1047,.88],[1319,1.04]].forEach(([f,t])=>tone(f,t,.4,'sawtooth',.1)); noise(0,1,.18); }
+  };
+  return {
+    play(n){ try{ P[n] && P[n](); }catch(e){} },
+    toggle(){ muted = !muted; store.set('tv.mute', muted); if(!muted) ac(); return muted; },
+    get muted(){ return muted; }
+  };
+})();
+function rainCoins(n){
+  const box = document.createElement('div'); box.className = 'rain';
+  for(let i = 0; i < n; i++){
+    const c = document.createElement('span'); c.className = 'coin drop';
+    c.style.left = (Math.random()*100) + 'vw';
+    c.style.animationDelay = (Math.random()*0.9) + 's';
+    c.style.animationDuration = (1.5 + Math.random()*1.3) + 's';
+    c.style.fontSize = (22 + Math.random()*28) + 'px';
+    box.appendChild(c);
+  }
+  document.body.appendChild(box); setTimeout(() => box.remove(), 3800);
+}
+function flash(text, cls){
+  const el = document.createElement('div'); el.className = 'flash ' + (cls || ''); el.textContent = text;
+  document.body.appendChild(el); setTimeout(() => el.remove(), 2000);
+}
+function buzz(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+const shipName = i => 'Ship ' + String.fromCharCode(65 + i) + (i + 1);      // Ship A1, Ship B2, …
+function shipIndex(name){
+  const m = /^Ship ([A-Z])(\d+)$/.exec(String(name || ''));
+  if(!m) return -1; const i = m[1].charCodeAt(0) - 65;
+  return (i + 1 === +m[2]) ? i : -1;
+}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const muteBtn = () => `<button class="btn ghost small mute" data-act="mute" aria-label="Sound on or off">${SFX.muted ? '🔇' : '🔊'}</button>`;
+
+/* ======================================================================
    ROUTING
    ====================================================================== */
-const JOIN = (params.get('join')||'').trim().toLowerCase();
+const JOIN = (params.get('join') || '').trim().toLowerCase();
 if(JOIN) startPlayer(JOIN); else startTeacher();
 
 /* ======================================================================
-   TEACHER / HOST
+   TEACHER / HOST (main screen)
    ====================================================================== */
 function startTeacher(){
-  const Q = BUILT_IN_QUESTIONS;                         // fixed, built into the game
-  const S = {earn:3, steal:2, teamCount: Math.max(2, Math.min(12, +store.get('tv.teamCount', 4) || 4))};
+  const Q = BUILT_IN_QUESTIONS;
+  const S = {earn:50, steal:40, teamCount: clamp(+store.get('tv.teamCount', 4) || 4, 2, 12)};
   let G = store.get('tv.game', null);
-  if(G && (!G.teamCount || !G.qs || G.qs.length !== BUILT_IN_QUESTIONS.length)){ G = null; store.del('tv.game'); }   // drop games saved by older versions
-  store.del('tv.questions'); store.del('tv.settings');
-  let peer = null, netOnline = false;
-  const conns = new Map();          // teamId -> DataConnection
-  let lastCoins = {};               // teamId -> coins (for delta animation)
-  let showQR = false;
-  let view = 'editor';
+  if(G && (G.v !== 4 || !G.qs || G.qs.length !== Q.length)){ G = null; store.del('tv.game'); }
+  ['tv.questions','tv.settings'].forEach(k => store.del(k));
 
-  const saveQ = () => store.set('tv.questions', Q);
+  let hosting = false, netCount = 0, view = 'editor', showQR = false;
+  const clients = [];                 // one MQTT client per relay
+  const conns = new Map();            // teamId -> conn
+  const byCid = new Map();            // cid -> conn {cid, bi, teamId, seen}
+  const lastSeen = {};
+  let lastCoins = {}, presenceTimer = null, countTimers = [], qTimer = null, prevFx = null;
+
   const saveS = () => store.set('tv.teamCount', S.teamCount);
   const saveG = () => G ? store.set('tv.game', G) : store.del('tv.game');
+  const team = id => G && G.teams.find(t => t.id === id);
 
-  /* ----- question validation ----- */
-  function qProblem(q){
-    if(!q.text || !q.text.trim()) return 'Add the question text.';
-    if(q.type === 'choice'){
-      const opts = (q.options||[]).map(o => (o||'').trim());
-      if(opts.filter(Boolean).length < 2) return 'Add at least 2 answer options.';
-      if(q.correct == null || !opts[q.correct]) return 'Mark which option is correct.';
-    } else if(!(q.answer||'').split('|').some(a => a.trim())) return 'Add the correct answer.';
-    return null;
-  }
-  const allValid = () => Q.length > 0 && Q.every(q => !qProblem(q));
-
-  /* ----- render: setup / editor ----- */
+  /* ----- setup screen ----- */
   function renderSetup(){
+    clearInterval(qTimer);
     app.innerHTML = `
-    <div class="wrap" style="max-width:720px">
-      <header class="hero">${compassSVG()}<div><h1>The Treasure Voyage</h1><p>Captain's quarters: choose how many ships will sail.</p></div></header>
+    <div class="wrap" style="max-width:740px">
+      <header class="hero">${compassSVG()}<div><h1>The Treasure Voyage</h1><p>Captain's quarters: choose how many ships will sail.</p></div><span style="margin-left:auto">${muteBtn()}</span></header>
       <section class="parchment panel" style="text-align:center">
         <h2 style="font-size:2.1rem">How many teams?</h2>
         <div class="row" style="justify-content:center;gap:18px;margin:10px 0 6px">
@@ -2713,383 +2815,288 @@ function startTeacher(){
           <span style="font-size:4rem;font-weight:900;min-width:1.6em;line-height:1">${S.teamCount}</span>
           <button class="btn big" data-act="tc" data-d="1" aria-label="More teams" ${S.teamCount>=12?'disabled':''}>+</button>
         </div>
-        <div class="row" style="justify-content:center;margin:6px 0 16px">${Array.from({length:S.teamCount}, (_,i) => shipSVG(TEAM_COLORS[i]).replace('class="ship"','class="ship" style="width:64px"')).join('')}</div>
-        <p class="hint" style="font-size:1.05em">${Q.length} questions on the treasure map · The first correct ship earns ${S.earn} <span class="coin"></span> or steals ${S.steal} <span class="coin"></span></p>
+        <div class="setup-ships">${Array.from({length:S.teamCount}, (_,i) => `<div>${shipSVG(TEAM_COLORS[i])}<b>${shipName(i).replace('Ship ','')}</b></div>`).join('')}</div>
+        <p class="hint" style="font-size:1.05em">${Q.length} islands on the treasure map · First correct answer wins: <b>earn ${S.earn}</b> <span class="coin"></span> or <b>steal ${S.steal}</b> <span class="coin"></span></p>
         <button class="btn gold big full" data-act="start" id="startBtn">⚓ Start Voyage</button>
         <div id="resumeBox" style="text-align:left">${resumeHTML()}</div>
       </section>
       <p class="join-link">Joining as a team? <a href="#" data-act="team-join">Enter a voyage code</a></p>
-      <p class="join-link" style="opacity:.7;font-size:.85em">Version 3 (relay connection)</p>
+      <p class="join-link" style="opacity:.7;font-size:.85em">Version 4</p>
     </div>`;
   }
   function resumeHTML(){
     if(!G || G.phase === 'final') return '';
     return `<div class="warn" style="margin-top:14px">A voyage is in progress: ${G.used.length} of ${G.qs.length} islands explored, ${G.teams.length} ship(s).
-      <div class="row" style="margin-top:8px"><button class="btn small" data-act="resume">${peer ? 'Return to the voyage' : 'Resume voyage'}</button><button class="btn ghost small" data-act="discard">Discard it</button></div></div>`;
-  }
-  function updateResume(){ const b = $('#resumeBox'); if(b) b.innerHTML = resumeHTML(); }
-  function renderQList(){
-    const el = $('#qlist'); if(!el) return;
-    if(!Q.length){ el.innerHTML = `<div class="empty">No questions yet. Add your first question below.</div>`; return; }
-    el.innerHTML = Q.map((q,i) => {
-      const prob = qProblem(q);
-      const body = q.type === 'choice'
-        ? `<label>Answer options (select the correct one)</label>` + [0,1,2,3].map(k => `
-            <div class="opt"><input type="radio" name="c${i}" data-i="${i}" data-f="correct" value="${k}" ${q.correct===k?'checked':''} aria-label="Option ${LETTERS[k]} is correct">
-            <span class="letter">${LETTERS[k]}</span><input type="text" data-i="${i}" data-f="opt" data-k="${k}" value="${esc((q.options||[])[k]||'')}" placeholder="Option ${LETTERS[k]}${k>1?' (optional)':''}"></div>`).join('')
-        : `<label>Correct answer</label><input type="text" data-i="${i}" data-f="answer" value="${esc(q.answer||'')}" placeholder="Correct answer (separate other accepted answers with |)">`;
-      return `<div class="qcard ${prob?'bad':''}" id="qc${i}">
-        <div class="qhead"><span class="qnum">Island ${i+1}</span>
-          <select data-i="${i}" data-f="type" aria-label="Question type"><option value="text" ${q.type!=='choice'?'selected':''}>Typed answer</option><option value="choice" ${q.type==='choice'?'selected':''}>Multiple choice</option></select>
-          <button class="btn ghost small" data-act="up" data-i="${i}" ${i===0?'disabled':''} aria-label="Move up">↑</button>
-          <button class="btn ghost small" data-act="down" data-i="${i}" ${i===Q.length-1?'disabled':''} aria-label="Move down">↓</button>
-          <button class="btn ghost small" data-act="del" data-i="${i}" aria-label="Delete question">✕</button>
-        </div>
-        <label>Question</label><textarea data-i="${i}" data-f="text" placeholder="Type the question here">${esc(q.text||'')}</textarea>
-        ${body}
-        <div class="qerr" id="qe${i}">${prob ? '⚠ '+prob : ''}</div>
-      </div>`;
-    }).join('');
-  }
-  function updateReady(){
-    const list = $('#readyList'); if(!list) return;
-    const bad = Q.map((q,i) => [i, qProblem(q)]).filter(x => x[1]);
-    const items = [];
-    items.push(Q.length ? `<li class="ok">✔ <span>${Q.length} question${Q.length>1?'s':''}, ${Q.length} island${Q.length>1?'s':''} on the map</span></li>` : `<li class="no">✘ <span>Add at least one question</span></li>`);
-    if(Q.length) items.push(!bad.length ? `<li class="ok">✔ <span>Every question has its correct answer</span></li>` : `<li class="no">✘ <span>Finish island${bad.length>1?'s':''} ${bad.map(b=>b[0]+1).join(', ')}</span></li>`);
-    list.innerHTML = items.join('');
-    const btn = $('#startBtn'); if(btn){ btn.disabled = !allValid(); btn.title = allValid() ? '' : 'Add questions and correct answers first'; }
-    Q.forEach((q,i) => { const p = qProblem(q), e = $('#qe'+i), c = $('#qc'+i); if(e) e.textContent = p ? '⚠ '+p : ''; if(c) c.classList.toggle('bad', !!p); });
+      <div class="row" style="margin-top:8px"><button class="btn small" data-act="resume">${hosting ? 'Return to the voyage' : 'Resume voyage'}</button><button class="btn ghost small" data-act="discard">Discard it</button></div></div>`;
   }
 
-  app.addEventListener('input', e => {
-    const t = e.target, i = +t.dataset.i, f = t.dataset.f;
-    if(t.id === 'earn' || t.id === 'steal'){ const v = Math.max(1, Math.min(99, parseInt(t.value)||1)); S[t.id] = v; saveS(); return; }
-    if(isNaN(i) || !Q[i]) return;
-    if(f === 'text') Q[i].text = t.value;
-    else if(f === 'answer') Q[i].answer = t.value;
-    else if(f === 'opt'){ Q[i].options = Q[i].options || ['','','','']; Q[i].options[+t.dataset.k] = t.value; }
-    else return;
-    saveQ(); updateReady();
-  });
-  app.addEventListener('change', e => {
-    const t = e.target, i = +t.dataset.i, f = t.dataset.f;
-    if(t.id === 'importFile'){ importFile(t.files[0]); return; }
-    if(isNaN(i) || !Q[i]) return;
-    if(f === 'type'){ Q[i].type = t.value; if(t.value==='choice' && !Q[i].options) Q[i].options = ['','','','']; saveQ(); renderQList(); updateReady(); }
-    else if(f === 'correct'){ Q[i].correct = +t.value; saveQ(); updateReady(); }
-  });
+  /* ----- clicks ----- */
   app.addEventListener('click', e => {
-    const b = e.target.closest('[data-act]'); if(!b) return;
-    const act = b.dataset.act, i = +b.dataset.i;
+    const b = e.target.closest('[data-act]'); if(!b || b.disabled) return;
+    const act = b.dataset.act;
     switch(act){
-      case 'add-text': Q.push({type:'text', text:'', answer:''}); saveQ(); renderQList(); updateReady(); focusLast(); break;
-      case 'add-choice': Q.push({type:'choice', text:'', options:['','','',''], correct:null}); saveQ(); renderQList(); updateReady(); focusLast(); break;
-      case 'up': if(i>0){ [Q[i-1],Q[i]] = [Q[i],Q[i-1]]; saveQ(); renderQList(); updateReady(); } break;
-      case 'down': if(i<Q.length-1){ [Q[i+1],Q[i]] = [Q[i],Q[i+1]]; saveQ(); renderQList(); updateReady(); } break;
-      case 'del': Q.splice(i,1); saveQ(); renderSetup(); break;
-      case 'clear': if(confirm('Delete all questions?')){ Q = []; saveQ(); renderSetup(); } break;
-      case 'bulk': bulkAdd(); break;
-      case 'builtin': if(!Q.length || confirm(`Replace your current questions with the ${BUILT_IN_QUESTIONS.length} built-in questions?`)){ Q = JSON.parse(JSON.stringify(BUILT_IN_QUESTIONS)); saveQ(); renderSetup(); toast('Built-in questions loaded'); } break;
-      case 'export': exportQ(); break;
+      case 'tc': S.teamCount = clamp(S.teamCount + (+b.dataset.d), 2, 12); saveS(); renderSetup(); break;
       case 'start': startVoyage(); break;
       case 'resume': resumeVoyage(); break;
       case 'discard': if(confirm('Discard the voyage in progress? Its scores will be lost.')){ endHosting(); G = null; view = 'editor'; saveG(); renderSetup(); } break;
       case 'team-join': e.preventDefault(); { const c = prompt('Enter the voyage code shown on the main screen:'); if(c && c.trim()) location.href = joinUrl(c.trim()); } break;
-      /* game actions */
-      case 'set-sail': if(G && G.teams.length && G.teams.length >= G.teamCount){ G.phase='choosing'; G.turn = G.teams[0].id; broadcast(); } break;
+      case 'mute': SFX.toggle(); b.textContent = SFX.muted ? '🔇' : '🔊'; break;
+      case 'fleet': if(G){
+        const minNeeded = Math.max(1, ...G.teams.map(t => t.idx + 1));
+        G.teamCount = clamp(G.teamCount + (+b.dataset.d), minNeeded, 12); broadcast(); } break;
+      case 'set-sail': if(G && G.teams.length){ G.phase = 'choosing'; broadcast(); flash('Set sail!'); } break;
       case 'to-editor': view = 'editor'; renderSetup(); break;
-      case 'tc': S.teamCount = Math.max(2, Math.min(12, S.teamCount + (+b.dataset.d))); saveS(); renderSetup(); break;
-      case 'fleet': if(G){ G.teamCount = Math.max(Math.max(1, G.teams.length), Math.min(16, (G.teamCount||S.teamCount) + (+b.dataset.d))); broadcast(); } break;
       case 'kick': kickTeam(b.dataset.id); break;
-      case 'skip': nextTurn(); break;
+      case 'pick': selectQuestion(+b.dataset.n); break;
       case 'close-q': closeQuestion(); break;
-      case 'next': nextTurn(); break;
       case 'reward': applyReward(b.dataset.kind, b.dataset.target); break;
-      case 'end': if(confirm('End the voyage now and show the final treasure count?')){ G.phase='final'; broadcast(); } break;
+      case 'next': nextRound(); break;
+      case 'end': if(confirm('End the voyage now and show the final treasure count?')){ G.phase = 'final'; broadcast(); } break;
       case 'qr': showQR = !showQR; renderModal(); break;
       case 'adj': adjust(b.dataset.id, +b.dataset.d); break;
-      case 'pick': if(G && G.phase==='choosing') selectQuestion(+b.dataset.n); break;
-      case 'turn': if(G && G.phase==='choosing'){ G.turn = b.dataset.id; broadcast(); } break;
       case 'new-voyage': endHosting(); G = null; view = 'editor'; saveG(); renderSetup(); break;
     }
   });
-  function focusLast(){ const ts = app.querySelectorAll('#qlist textarea'); const t = ts[ts.length-1]; if(t){ t.focus(); t.scrollIntoView({block:'center'}); } }
-  function bulkAdd(){
-    const lines = ($('#bulk').value||'').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    let added = 0, skipped = 0;
-    for(const l of lines){
-      const parts = l.split('|'); if(parts.length < 2 || !parts[0].trim() || !parts.slice(1).join('|').trim()){ skipped++; continue; }
-      Q.push({type:'text', text:parts[0].trim(), answer:parts.slice(1).map(s=>s.trim()).filter(Boolean).join(' | ')}); added++;
-    }
-    saveQ(); renderSetup(); toast(`Added ${added} question${added===1?'':'s'}` + (skipped ? `; skipped ${skipped} line(s) without a | answer` : ''));
-  }
-  function exportQ(){
-    const blob = new Blob([JSON.stringify({game:'The Treasure Voyage', questions:Q, rewards:S}, null, 2)], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'treasure-voyage-questions.json'; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  }
-  function importFile(file){
-    if(!file) return;
-    const r = new FileReader();
-    r.onload = () => {
-      try{
-        const d = JSON.parse(r.result); const arr = Array.isArray(d) ? d : d.questions;
-        if(!Array.isArray(arr)) throw 0;
-        const clean = arr.map(q => q.type==='choice'
-          ? {type:'choice', text:String(q.text||''), options:[0,1,2,3].map(k => String((q.options||[])[k]||'')), correct: Number.isInteger(q.correct)?q.correct:null}
-          : {type:'text', text:String(q.text||''), answer:String(q.answer||'')});
-        if(Q.length && !confirm(`Replace your ${Q.length} current question(s) with ${clean.length} imported question(s)?`)) return;
-        Q = clean; if(d.rewards){ S.earn = +d.rewards.earn||S.earn; S.steal = +d.rewards.steal||S.steal; saveS(); }
-        saveQ(); renderSetup(); toast(`Imported ${clean.length} question(s)`);
-      }catch(e){ toast('That file is not a Treasure Voyage question file.'); }
-    };
-    r.readAsText(file);
-  }
 
   /* ----- voyage lifecycle ----- */
   function startVoyage(){
     if(G && G.phase !== 'final' && !confirm('Start a new voyage? The voyage in progress will be discarded.')) return;
     endHosting();
-    const qs = Q.map(q => {
-      if(q.type !== 'choice') return {type:'text', text:q.text.trim(), answer:q.answer};
-      const opts = [], map = {};
-      q.options.forEach((o,k) => { if((o||'').trim()){ map[k] = opts.length; opts.push(o.trim()); } });
-      return {type:'choice', text:q.text.trim(), options:opts, correct:map[q.correct]};
-    });
-    const code = randStr(6);
-    G = { code, peerId: PREFIX + code, phase:'lobby', qs, settings:{earn:S.earn, steal:S.steal},
-          teamCount:S.teamCount, teams:[], turn:null, used:[], cur:null, answers:{}, winner:null, result:null, log:[] };
-    lastCoins = {}; view = 'game'; saveG(); startHosting(); renderHost();
+    const qs = Q.map(q => q.type === 'choice'
+      ? {type:'choice', text:q.text, options:q.options.slice(), correct:q.correct}
+      : {type:'text', text:q.text, answer:q.answer});
+    G = { v:4, code: randStr(6), phase:'lobby', qs, settings:{earn:S.earn, steal:S.steal}, teamCount:S.teamCount,
+          teams:[], used:[], cur:null, answers:{}, winner:null, result:null, count:0, qStart:0 };
+    lastCoins = {}; prevFx = null; view = 'game'; saveG(); startHosting(); renderHost();
   }
-  function resumeVoyage(){ if(!G) return; view = 'game'; if(peer){ renderHost(); return; } lastCoins = Object.fromEntries(G.teams.map(t => [t.id,t.coins])); G.teams.forEach(t => t.online = false); startHosting(); renderHost(); }
+  function resumeVoyage(){
+    if(!G) return; view = 'game';
+    if(hosting){ renderHost(); return; }
+    lastCoins = Object.fromEntries(G.teams.map(t => [t.id, t.coins]));
+    G.teams.forEach(t => t.online = false);
+    if(G.phase === 'countdown'){ G.phase = 'question'; G.qStart = Date.now(); }
+    prevFx = null; startHosting(); renderHost();
+  }
 
-  /* ----- networking (host) ----- */
-  let retryTimer = null, presenceTimer = null;
-  const byCid = new Map();          // cid -> virtual connection
-  const lastSeen = {};              // teamId -> time of last message
-  function getConn(cid){
-    let c = byCid.get(cid);
-    if(!c){ c = {cid, teamId:null, open:true, close(){}}; byCid.set(cid, c); }
-    return c;
-  }
+  /* ----- networking: listen on every relay at once ----- */
   function startHosting(){
-    clearTimeout(retryTimer);
-    if(typeof mqtt === 'undefined'){ netOnline = false; renderHost(); return; }
-    const list = brokerList();
-    const order = [...list.keys()];
-    if(G.broker != null && list[G.broker]){ order.splice(order.indexOf(G.broker), 1); order.unshift(G.broker); }
-    tryBroker(order, 0);
-    clearInterval(presenceTimer);
-    presenceTimer = setInterval(checkPresence, 4000);
-  }
-  function tryBroker(order, k){
-    if(!G) return;
-    if(k >= order.length){ retryTimer = setTimeout(() => tryBroker(order, 0), 3000); return; }
-    const idx = order[k], b = brokerList()[idx];
-    let c, done = false;
-    const fail = () => { if(done) return; done = true; clearTimeout(timer); try{ c && c.end(true); }catch(e){} tryBroker(order, k+1); };
-    const timer = setTimeout(fail, 8000);
-    try{ c = mqtt.connect(b.url, mqttOpts(b, 'tvh_' + randStr(12), {reconnectPeriod:0})); }catch(e){ fail(); return; }
-    c.once('connect', () => {
-      if(done) return; done = true; clearTimeout(timer);
-      if(!G){ c.end(true); return; }
-      if(G.broker !== idx){ G.broker = idx; saveG(); }
-      c.options.reconnectPeriod = 2000;              // keep this relay, reconnect automatically
-      peer = c; attachHost(c);
+    hosting = true;
+    if(typeof mqtt === 'undefined'){ renderHost(); return; }
+    brokerList().forEach((b, i) => {
+      let c; try{ c = mqtt.connect(b.url, mqttOpts(b, 'tvh_' + randStr(12), {reconnectPeriod:3000})); }catch(e){ return; }
+      clients[i] = c;
+      c.on('connect', () => { c.subscribe(topicBase(G.code) + 'up', {qos:1}); updateNet(); });
+      c.on('close', updateNet); c.on('offline', updateNet); c.on('error', () => {});
+      c.on('message', (topic, payload) => {
+        let d; try{ d = JSON.parse(payload.toString()); }catch(e){ return; }
+        if(!d || typeof d !== 'object' || typeof d.cid !== 'string' || d.cid.length > 40) return;
+        let conn = byCid.get(d.cid);
+        if(!conn){ conn = {cid:d.cid, teamId:null, bi:i, seen:0}; byCid.set(d.cid, conn); }
+        conn.bi = i; conn.seen = Date.now();
+        onMessage(conn, d);
+      });
     });
-    c.once('error', fail);
-    c.once('close', () => { if(!done) fail(); });
+    clearInterval(presenceTimer); presenceTimer = setInterval(checkPresence, 4000);
   }
-  function attachHost(c){
-    const base = topicBase(G.code);
-    const sub = () => c.subscribe(base + 'up', {qos:1});
-    sub(); netOnline = true; renderHost();
-    c.on('connect', () => { sub(); netOnline = true; renderHost(); });
-    c.on('close', () => { if(netOnline){ netOnline = false; renderHost(); } });
-    c.on('message', (topic, payload) => {
-      let d; try{ d = JSON.parse(payload.toString()); }catch(e){ return; }
-      if(!d || typeof d !== 'object' || typeof d.cid !== 'string') return;
-      onMessage(getConn(d.cid), d);
-    });
+  function updateNet(){
+    const n = clients.filter(c => c && c.connected).length;
+    if(n === netCount) return; netCount = n;
+    const p = $('#netpill'); if(p) p.outerHTML = netPill(); else if(view === 'game') renderHost();
   }
   function endHosting(){
-    clearTimeout(retryTimer); clearInterval(presenceTimer);
-    conns.clear(); byCid.clear();
-    if(peer){ try{ peer.end(true); }catch(e){} peer = null; }
-    netOnline = false;
+    clients.forEach(c => { try{ c && c.end(true); }catch(e){} }); clients.length = 0;
+    conns.clear(); byCid.clear(); hosting = false; netCount = 0;
+    clearInterval(presenceTimer); countTimers.forEach(clearTimeout); countTimers = []; clearInterval(qTimer);
+  }
+  function send(conn, msg){
+    const c = conn && clients[conn.bi];
+    if(c && c.connected){ try{ c.publish(topicBase(G.code) + 'down/' + conn.cid, JSON.stringify(msg), {qos:1}); }catch(e){} }
+  }
+  function shipsInfo(){
+    return Array.from({length:G.teamCount}, (_, i) => {
+      const nm = shipName(i), t = G.teams.find(x => x.name === nm);
+      return {name:nm, color:TEAM_COLORS[i], status: !t ? 'free' : t.online ? 'taken' : 'away'};
+    });
   }
   function checkPresence(){
     if(!G) return;
     const now = Date.now(); let changed = false;
-    for(const t of G.teams){
-      if(t.online && (!lastSeen[t.id] || now - lastSeen[t.id] > 16000)){ t.online = false; changed = true; }
-    }
+    for(const t of G.teams){ if(t.online && (!lastSeen[t.id] || now - lastSeen[t.id] > 16000)){ t.online = false; changed = true; } }
     if(changed) broadcast();
-  }
-  function onClose(conn){
-    if(conn.teamId && conns.get(conn.teamId) === conn){
-      conns.delete(conn.teamId);
-      const t = team(conn.teamId); if(t){ t.online = false; broadcast(); }
-    }
-  }
-  const team = id => G && G.teams.find(t => t.id === id);
-  function send(conn, msg){
-    try{ if(peer && conn) peer.publish(topicBase(G.code) + 'down/' + conn.cid, JSON.stringify(msg), {qos:1}); }catch(e){}
   }
   function attachTeam(conn, t){
     const old = conns.get(t.id);
     if(old && old !== conn){ old.teamId = null; send(old, {t:'replaced'}); }
     conn.teamId = t.id; conns.set(t.id, conn); t.online = true; lastSeen[t.id] = Date.now();
-    send(conn, {t:'welcome', teamId:t.id, name:t.name, code:G.code});
+    send(conn, {t:'welcome', teamId:t.id, name:t.name});
   }
 
   function onMessage(conn, d){
-    if(!G || !d || typeof d !== 'object') return;
+    if(!G) return;
     if(conn.teamId) lastSeen[conn.teamId] = Date.now();
-    if(d.t === 'hello'){ send(conn, {t:'hostok'}); return; }
-    if(d.t === 'bye'){ onClose(conn); return; }
-    if(d.t === 'ping'){
-      const t = d.teamId && team(d.teamId);
-      if(!t){ send(conn, {t:'unknown'}); return; }
-      if(conns.get(t.id) !== conn){ attachTeam(conn, t); broadcast(); return; }
-      lastSeen[t.id] = Date.now();
-      if(!t.online){ t.online = true; broadcast(); } else send(conn, {t:'pong'});
-      return;
-    }
-    if(d.t === 'join'){
-      let t = d.teamId && team(d.teamId);
-      if(!t){
-        const name = String(d.name||'').replace(/\s+/g,' ').trim().slice(0,24);
-        if(!name){ send(conn, {t:'error', msg:'Please enter a team name.'}); return; }
-        const same = G.teams.find(x => x.name.toLowerCase() === name.toLowerCase());
-        if(same){
-          if(same.online){ send(conn, {t:'error', msg:'That ship name is already taken. Choose another name.'}); return; }
-          t = same; // rejoin an offline ship by its name (e.g. new device)
-        } else if(G.teams.length >= (G.teamCount || 99)){
-          send(conn, {t:'error', msg:`The fleet is full (${G.teamCount} ships). Ask your teacher for help.`}); return;
-        } else {
-          const used = new Set(G.teams.map(x => x.color));
-          const color = TEAM_COLORS.find(c => !used.has(c)) || TEAM_COLORS[G.teams.length % TEAM_COLORS.length];
-          t = {id: randStr(10), name, color, coins:0, online:true};
-          G.teams.push(t); lastCoins[t.id] = 0;
-        }
-      }
-      attachTeam(conn, t);
-      broadcast(); return;
-    }
-    const tid = conn.teamId; if(!tid || !team(tid)) return;
-    if(d.t === 'pick'){
-      if(G.phase === 'choosing' && G.turn === tid) selectQuestion(+d.n);
-    } else if(d.t === 'answer'){
-      if(!G.cur || d.num !== G.cur.num) return;
-      if(G.answers[tid]){ return; }                       // one attempt only
-      if(G.phase !== 'question'){                        // arrived after the round closed
-        if(G.phase === 'reward' || G.phase === 'reveal'){ G.answers[tid] = {late:true, correct:false}; broadcast(); }
+    switch(d.t){
+      case 'hello': send(conn, {t:'hostok', ships:shipsInfo(), phase:G.phase}); return;
+      case 'bye':
+        if(conn.teamId && conns.get(conn.teamId) === conn){ const t = team(conn.teamId); conns.delete(conn.teamId); if(t){ t.online = false; broadcast(); } }
+        return;
+      case 'ping': {
+        const t = d.teamId && team(d.teamId);
+        if(!t){ send(conn, {t:'unknown'}); return; }
+        if(conns.get(t.id) !== conn){ attachTeam(conn, t); broadcast(); return; }
+        lastSeen[t.id] = Date.now();
+        if(!t.online){ t.online = true; broadcast(); } else send(conn, {t:'pong'});
         return;
       }
-      const q = G.qs[G.cur.num-1];
-      const correct = q.type === 'choice'
-        ? (+d.answer === q.correct)
-        : q.answer.split('|').map(norm).filter(Boolean).includes(norm(d.answer));
-      G.answers[tid] = {correct, given: String(d.answer).slice(0,200), at: Date.now()};
-      if(correct){ G.winner = tid; G.phase = 'reward'; }
-      else {
-        const active = G.teams.filter(t => t.online || G.answers[t.id]);
-        if(active.length && active.every(t => G.answers[t.id])){ G.phase = 'reveal'; G.result = {text:'No ship found the treasure this time.'}; }
+      case 'join': {
+        let t = d.teamId && team(d.teamId);
+        if(!t){
+          const idx = shipIndex(d.ship);
+          if(idx < 0 || idx >= G.teamCount){ send(conn, {t:'error', msg:'Please choose one of the ships.'}); send(conn, {t:'hostok', ships:shipsInfo(), phase:G.phase}); return; }
+          const nm = shipName(idx);
+          t = G.teams.find(x => x.name === nm);
+          if(t){
+            const holder = conns.get(t.id);
+            if(t.online && holder && holder !== conn){ send(conn, {t:'error', msg:`${nm} is already taken. Choose another ship.`}); send(conn, {t:'hostok', ships:shipsInfo(), phase:G.phase}); return; }
+          } else {
+            t = {id:randStr(10), name:nm, idx, color:TEAM_COLORS[idx], coins:0, online:true};
+            G.teams.push(t); G.teams.sort((a, b) => a.idx - b.idx); lastCoins[t.id] = 0;
+          }
+        }
+        attachTeam(conn, t); broadcast(); return;
       }
-      broadcast();
-    } else if(d.t === 'reward'){
-      if(G.phase === 'reward' && G.winner === tid) applyReward(d.kind, d.target);
+      case 'answer': {
+        const tid = conn.teamId; if(!tid || !team(tid) || !G.cur || d.num !== G.cur.num || G.answers[tid]) return;
+        if(G.phase !== 'question'){
+          if(G.phase === 'reward' || G.phase === 'reveal'){ G.answers[tid] = {late:true, correct:false}; broadcast(); }
+          return;
+        }
+        const q = G.qs[G.cur.num - 1];
+        const correct = q.type === 'choice' ? (+d.answer === q.correct) : String(q.answer).split('|').map(norm).filter(Boolean).includes(norm(d.answer));
+        G.answers[tid] = {correct, at:Date.now()};
+        if(correct){ G.winner = tid; G.phase = 'reward'; G.winTime = Math.max(0, Math.round((Date.now() - G.qStart)/100)/10); }
+        else {
+          const active = G.teams.filter(t => t.online || G.answers[t.id]);
+          if(active.length && active.every(t => G.answers[t.id])){ G.phase = 'reveal'; G.result = {kind:'none', text:'No ship found the treasure this time!'}; }
+        }
+        broadcast(); return;
+      }
+      case 'reward':
+        if(G.phase === 'reward' && G.winner === conn.teamId) applyReward(d.kind, d.target);
+        return;
     }
   }
 
   /* ----- game logic ----- */
   function selectQuestion(n){
     if(!G || G.phase !== 'choosing' || !(n >= 1 && n <= G.qs.length) || G.used.includes(n)) return;
-    G.used.push(n);
-    G.cur = {num:n, by:G.turn};
-    G.answers = {}; G.winner = null; G.result = null;
-    G.phase = 'question';
-    broadcast();
+    G.used.push(n); G.cur = {num:n}; G.answers = {}; G.winner = null; G.result = null;
+    G.phase = 'countdown'; G.count = 3; broadcast();
+    countTimers.forEach(clearTimeout);
+    countTimers = [
+      setTimeout(() => { if(G && G.phase === 'countdown'){ G.count = 2; broadcast(); } }, 1000),
+      setTimeout(() => { if(G && G.phase === 'countdown'){ G.count = 1; broadcast(); } }, 2000),
+      setTimeout(() => { if(G && G.phase === 'countdown'){ G.phase = 'question'; G.qStart = Date.now(); broadcast(); } }, 3000)
+    ];
   }
   function closeQuestion(){
     if(!G || G.phase !== 'question') return;
-    G.phase = 'reveal'; G.result = {text:'No ship found the treasure this time.'}; broadcast();
+    G.phase = 'reveal'; G.result = {kind:'none', text:'No ship found the treasure this time!'}; broadcast();
   }
   function applyReward(kind, target){
     if(!G || G.phase !== 'reward') return;
     const w = team(G.winner); if(!w) return;
     if(kind === 'earn'){
       w.coins += G.settings.earn;
-      G.result = {text:`${w.name} earned ${G.settings.earn} gold coin${G.settings.earn>1?'s':''}!`};
+      G.result = {kind:'earn', winner:w.id, amount:G.settings.earn, text:`${w.name} earned ${G.settings.earn} gold coins!`};
     } else if(kind === 'steal'){
       const t = team(target); if(!t || t.id === w.id || t.coins <= 0) return;
       const amt = Math.min(G.settings.steal, t.coins);
       t.coins -= amt; w.coins += amt;
-      G.result = {text:`${w.name} stole ${amt} gold coin${amt>1?'s':''} from ${t.name}!`};
+      G.result = {kind:'steal', winner:w.id, target:t.id, amount:amt, text:`${w.name} stole ${amt} gold coins from ${t.name}!`};
     } else return;
     G.phase = 'reveal'; broadcast();
   }
-  function nextTurn(){
+  function nextRound(){
     if(!G) return;
-    if(G.used.length >= G.qs.length){ G.phase = 'final'; G.cur = null; broadcast(); return; }
-    const idx = G.teams.findIndex(t => t.id === G.turn);
-    const nxt = G.teams[(idx + 1) % G.teams.length];
-    G.turn = nxt ? nxt.id : null; G.cur = null; G.answers = {}; G.winner = null; G.result = null;
-    G.phase = 'choosing'; broadcast();
+    G.cur = null; G.answers = {}; G.winner = null; G.result = null;
+    G.phase = G.used.length >= G.qs.length ? 'final' : 'choosing';
+    broadcast();
   }
   function adjust(id, d){ const t = team(id); if(!t) return; t.coins = Math.max(0, t.coins + d); broadcast(); }
   function kickTeam(id){
     const t = team(id); if(!t) return;
-    if(!confirm(`Remove "${t.name}" from the voyage?`)) return;
+    if(!confirm(`Remove ${t.name} from the voyage?`)) return;
     const c = conns.get(id); send(c, {t:'kicked'}); if(c) c.teamId = null;
-    conns.delete(id); G.teams = G.teams.filter(x => x.id !== id);
-    if(G.turn === id) G.turn = G.teams[0] ? G.teams[0].id : null;
-    broadcast();
+    conns.delete(id); G.teams = G.teams.filter(x => x.id !== id); broadcast();
   }
 
   function publicState(tid){
     const showQ = G.cur && ['question','reward','reveal'].includes(G.phase);
-    const q = showQ ? G.qs[G.cur.num-1] : null;
-    const reveal = G.phase === 'reveal' && q ? (q.type === 'choice' ? q.options[q.correct] : q.answer.split('|')[0].trim()) : null;
+    const q = showQ ? G.qs[G.cur.num - 1] : null;
+    const reveal = G.phase === 'reveal' && q ? (q.type === 'choice' ? `${LETTERS[q.correct]}. ${q.options[q.correct]}` : String(q.answer).split('|')[0].trim()) : null;
     const a = G.answers[tid];
     return {
-      t:'state', phase:G.phase, code:G.code, total:G.qs.length, used:G.used, turn:G.turn,
+      t:'state', phase:G.phase, total:G.qs.length, used:G.used, count:G.count,
+      island: G.cur ? G.cur.num : null,
       teams:G.teams.map(t => ({id:t.id, name:t.name, color:t.color, coins:t.coins, online:!!t.online})),
-      cur: q ? {num:G.cur.num, text:q.text, type:q.type, options:q.type==='choice'?q.options:null} : null,
-      answered:Object.keys(G.answers), winner:G.winner, result:G.result, reveal, settings:G.settings,
-      revealIndex: G.phase==='reveal' && q && q.type==='choice' ? q.correct : null,
-      you:{ id:tid, status: !a ? 'none' : a.correct ? 'correct' : a.late ? 'late' : 'wrong' }
+      cur: q ? {num:G.cur.num, text:q.text, type:q.type, options:q.type === 'choice' ? q.options : null} : null,
+      answered:Object.keys(G.answers), winner:G.winner, winTime:G.winTime, result:G.result, reveal, settings:G.settings,
+      revealIndex: G.phase === 'reveal' && q && q.type === 'choice' ? q.correct : null,
+      you:{id:tid, status: !a ? 'none' : a.correct ? 'correct' : a.late ? 'late' : 'wrong'}
     };
   }
+  function hostFx(){
+    const cur = {phase:G.phase, count:G.count, nAns:Object.keys(G.answers).length, nTeams:G.teams.length};
+    const p = prevFx || cur; prevFx = cur;
+    if(view !== 'game') return;
+    if(cur.nTeams > p.nTeams) SFX.play('join');
+    if(cur.phase === 'countdown' && (p.phase !== 'countdown' || p.count !== cur.count)) SFX.play(p.phase !== 'countdown' ? 'drum' : 'tick');
+    if(cur.phase === 'question' && p.phase !== 'question') SFX.play('go');
+    if(cur.phase === 'question' && cur.nAns > p.nAns) SFX.play('answered');
+    if(cur.phase === 'reward' && p.phase !== 'reward'){ SFX.play('correct'); flash('Treasure found!'); }
+    if(cur.phase === 'reveal' && p.phase !== 'reveal'){
+      const k = G.result && G.result.kind;
+      if(k === 'earn'){ SFX.play('coins'); rainCoins(45); }
+      else if(k === 'steal'){ SFX.play('steal'); flash('☠ Stolen!', 'bad'); rainCoins(20); }
+      else SFX.play('wrong');
+    }
+    if(cur.phase === 'final' && p.phase !== 'final'){ SFX.play('fanfare'); setTimeout(() => rainCoins(80), 300); }
+  }
   function broadcast(){
-    saveG(); renderHost();
+    if(!G) return;
+    saveG(); hostFx(); renderHost();
     for(const [tid, c] of conns) send(c, publicState(tid));
+    const now = Date.now();
+    for(const c of byCid.values()) if(!c.teamId && now - c.seen < 30000) send(c, {t:'hostok', ships:shipsInfo(), phase:G.phase});
   }
 
-  /* ----- render: host screens ----- */
-  function netPill(){ return `<span class="net ${netOnline?'':'off'}">${netOnline ? '● Live' : '● Connecting…'}</span>`; }
+  /* ----- host rendering ----- */
+  function netPill(){
+    return `<span class="net ${netCount ? '' : 'off'}" id="netpill">${netCount ? `● Live (${netCount} relay${netCount>1?'s':''})` : '● Connecting…'}</span>`;
+  }
   function qrSVG(text){
     if(typeof qrcode === 'undefined') return '<p>QR code unavailable</p>';
     const qr = qrcode(0, 'M'); qr.addData(text); qr.make();
     return qr.createSvgTag({cellSize:8, margin:3, scalable:true});
   }
   function fileWarning(){
-    return location.protocol === 'file:' ? `<div class="warn">This page is open as a file on this computer, so phones can't reach it through the QR code. Put the page online first (for example on Netlify or GitHub Pages) and open it from there.</div>` : '';
+    return location.protocol === 'file:' || /claudeusercontent|claude\.ai/.test(location.host)
+      ? `<div class="warn">This page is not on its web link, so phones can't join here. Open the game from its GitHub Pages link.</div>` : '';
   }
   function renderHost(){
-    if(!G || view !== 'game'){ if(view !== 'game' && G && $('#resumeBox')) updateResume(); return; }
+    if(!G || view !== 'game'){ const b = $('#resumeBox'); if(b) b.innerHTML = resumeHTML(); return; }
     if(G.phase === 'lobby') renderLobby();
     else if(G.phase === 'final') renderFinalHost();
     else renderBoard();
     renderModal();
   }
   function renderLobby(){
-    const url = joinUrl(G.code, G.broker);
+    clearInterval(qTimer);
+    const url = joinUrl(G.code);
+    const joined = G.teams.length;
     app.innerHTML = `
     <div class="wrap">
-      <header class="hero">${compassSVG()}<div><h1>The Treasure Voyage</h1><p>All hands on deck! Teams, scan the code to join the fleet.</p></div><span style="margin-left:auto">${netPill()}</span></header>
+      <header class="hero">${compassSVG()}<div><h1>The Treasure Voyage</h1><p>All hands on deck! Scan the code and choose your ship.</p></div><span style="margin-left:auto" class="row">${netPill()}${muteBtn()}</span></header>
       <div class="lobby-grid">
         <section class="parchment panel">
           <h2 style="font-size:2rem;text-align:center">Join the Voyage</h2>
@@ -3098,371 +3105,365 @@ function startTeacher(){
           ${fileWarning()}
         </section>
         <section class="parchment panel">
-          <h2 style="font-size:2rem">Ships in Harbour (${G.teams.length} of ${G.teamCount})</h2>
-          <p class="hint">Each team enters a ship name on its device. No accounts needed.
-            <span style="white-space:nowrap">Teams: <button class="btn ghost small" data-act="fleet" data-d="-1" aria-label="Fewer teams">−</button> <b>${G.teamCount}</b> <button class="btn ghost small" data-act="fleet" data-d="1" aria-label="More teams">+</button></span></p>
-          <div class="harbor">${G.teams.length ? G.teams.map(t => `
-            <div class="dock" style="${t.online?'':'opacity:.55'}">${shipSVG(t.color)}<div class="nm">${esc(t.name)}</div>
-            <button class="btn ghost small x" data-act="kick" data-id="${t.id}" aria-label="Remove ${esc(t.name)}">✕</button></div>`).join('')
-            : `<div class="empty" style="grid-column:1/-1">Waiting for the first ship to arrive…</div>`}</div>
+          <h2 style="font-size:2rem">Ships in Harbour (${joined} of ${G.teamCount})</h2>
+          <p class="hint">Each team taps its ship on its phone. Teams:
+            <button class="btn ghost small" data-act="fleet" data-d="-1" aria-label="Fewer teams">−</button> <b>${G.teamCount}</b>
+            <button class="btn ghost small" data-act="fleet" data-d="1" aria-label="More teams">+</button></p>
+          <div class="harbor">${Array.from({length:G.teamCount}, (_, i) => {
+            const nm = shipName(i), t = G.teams.find(x => x.name === nm);
+            return `<div class="dock ${t ? (t.online ? 'joined' : '') : 'waiting'}">${shipSVG(TEAM_COLORS[i])}<div class="nm">${nm}</div>
+              <div class="meta">${t ? (t.online ? '✓ Aboard' : 'Offline') : 'Waiting…'}</div>
+              ${t ? `<button class="btn ghost small x" data-act="kick" data-id="${t.id}" aria-label="Remove ${nm}">✕</button>` : ''}</div>`;
+          }).join('')}</div>
           <div class="row">
-            <button class="btn gold big" data-act="set-sail" ${G.teams.length && G.teams.length >= G.teamCount ? '' : 'disabled'}>⛵ Set Sail</button>
+            <button class="btn gold big" data-act="set-sail" ${joined ? '' : 'disabled'}>⛵ Set Sail</button>
             <button class="btn ghost" data-act="to-editor">Back</button>
           </div>
-          <div class="hint" style="margin-top:8px">${G.teams.length >= G.teamCount ? 'All ships are in the harbour. Ready to set sail!' : `Waiting for ${G.teamCount - G.teams.length} more ship${G.teamCount - G.teams.length === 1 ? '' : 's'}…`}
-          </div>
-
+          <div class="hint" style="margin-top:8px">${joined >= G.teamCount ? 'All ships are aboard. Set sail!' : `Waiting for ${G.teamCount - joined} more ship${G.teamCount - joined === 1 ? '' : 's'}… (you can also set sail now)`}</div>
         </section>
       </div>
     </div>`;
   }
   function layoutIslands(n, w, h){
-    const ratio = w / Math.max(h,1);
+    const ratio = w / Math.max(h, 1);
     let cols = Math.max(1, Math.round(Math.sqrt(n * ratio)));
     let rows = Math.ceil(n / cols);
     while(cols > 1 && Math.ceil(n/(cols-1)) <= rows) cols--;
     rows = Math.ceil(n / cols);
-    const cell = Math.min(w / cols, h / rows);
-    const pts = [];
-    for(let i=0;i<n;i++){
+    const cell = Math.min(w / cols, h / rows), pts = [];
+    for(let i = 0; i < n; i++){
       const r = Math.floor(i / cols); let c = i % cols;
-      if(r % 2 === 1) c = cols - 1 - c;              // snake path
+      if(r % 2 === 1) c = cols - 1 - c;
       const inRow = (r === rows-1) ? n - r*cols : cols;
       const off = (r === rows-1 && inRow < cols) ? ((r%2===1) ? -(cols-inRow)/2 : (cols-inRow)/2) : 0;
       const jx = (Math.sin(i*12.9898)*0.5) * 0.18, jy = (Math.cos(i*78.233)*0.5) * 0.22;
-      pts.push({ x: ((c + off + 0.5 + jx) / cols) * w, y: ((r + 0.5 + jy) / rows) * h });
+      pts.push({x: ((c + off + 0.5 + jx) / cols) * w, y: ((r + 0.5 + jy) / rows) * h});
     }
     return {pts, size: Math.min(cell * 0.86, 210)};
   }
-  function mapHTML(){
-    return `<div class="parchment mapwrap" id="mapwrap"><div id="map"></div>${compassSVG('map-compass')}${bannerHTML()}${overlayHTML()}</div>`;
-  }
   function drawMap(){
     const wrap = $('#mapwrap'), map = $('#map'); if(!wrap || !map) return;
-    const pad = 30, top = 70;
-    const w = wrap.clientWidth - pad*2, h = wrap.clientHeight - pad - top;
-    const n = G.qs.length;
-    const {pts, size} = layoutIslands(n, w, h);
-    const route = pts.map(p => `${p.x+pad},${p.y+top}`).join(' ');
+    const pad = 30, top = 70, w = wrap.clientWidth - pad*2, h = wrap.clientHeight - pad - top;
+    const {pts, size} = layoutIslands(G.qs.length, w, h);
     const pickable = G.phase === 'choosing';
-    map.innerHTML = `<svg class="route" viewBox="0 0 ${wrap.clientWidth} ${wrap.clientHeight}"><polyline points="${route}" fill="none" stroke="#9b6b3a" stroke-width="4" stroke-dasharray="2 12" stroke-linecap="round" opacity=".7"/></svg>` +
-      pts.map((p,i) => {
-        const num = i+1, used = G.used.includes(num), live = G.cur && G.cur.num === num && G.phase !== 'choosing';
-        const cls = ['island', used && !live ? 'used':'', live?'live':'', pickable && !used ? 'pickable':''].join(' ');
-        return `<button class="${cls}" style="left:${p.x+pad}px;top:${p.y+top}px;width:${size}px;height:${size*0.8}px;--fs:${Math.max(14,Math.round(size*0.17))}px"
+    map.innerHTML = `<svg class="route" viewBox="0 0 ${wrap.clientWidth} ${wrap.clientHeight}"><polyline points="${pts.map(p => `${p.x+pad},${p.y+top}`).join(' ')}" fill="none" stroke="#9b6b3a" stroke-width="4" stroke-dasharray="2 12" stroke-linecap="round" opacity=".7"/></svg>` +
+      pts.map((p, i) => {
+        const num = i + 1, used = G.used.includes(num), live = G.cur && G.cur.num === num && G.phase !== 'choosing';
+        const cls = ['island', used && !live ? 'used' : '', live ? 'live' : '', pickable && !used ? 'pickable' : ''].join(' ');
+        return `<button class="${cls}" style="left:${p.x+pad}px;top:${p.y+top}px;width:${size}px;height:${size*0.8}px;--fs:${Math.max(14, Math.round(size*0.17))}px"
           ${pickable && !used ? `data-act="pick" data-n="${num}" aria-label="Island ${num}"` : 'disabled'}>${islandSVG(i, used && !live)}<span class="n">${num}</span></button>`;
       }).join('');
   }
-  function bannerHTML(){
-    if(G.phase !== 'choosing') return '';
-    const t = team(G.turn);
-    return `<div class="banner">${t ? `<span><b>${esc(t.name)}</b>, choose an island! (Teacher: tap an island to choose for them)</span>` : '<span>Tap a ship on the right to give it the turn.</span>'}
-      <button class="btn small" data-act="skip">Skip turn</button></div>`;
-  }
   function overlayHTML(){
-    if(!G.cur || !['question','reward','reveal'].includes(G.phase)) return '';
-    const q = G.qs[G.cur.num-1];
-    const chooser = team(G.cur.by);
-    const opts = q.type === 'choice' ? `<div class="opts">${q.options.map((o,k) => `<div class="optbox ${G.phase==='reveal'&&k===q.correct?'correct':''}"><span class="L">${LETTERS[k]}</span><span>${esc(o)}</span></div>`).join('')}</div>` : '';
+    if(!G.cur) return '';
+    if(G.phase === 'countdown')
+      return `<div class="qover dark"><div class="countbox"><div class="tag">Island ${G.cur.num}</div><div class="count" key="${G.count}">${G.count}</div><div class="cb-hint">Get ready… the fastest correct ship wins!</div></div></div>`;
+    if(!['question','reward','reveal'].includes(G.phase)) return '';
+    const q = G.qs[G.cur.num - 1];
+    const opts = q.type === 'choice' ? `<div class="opts">${q.options.map((o, k) => `<div class="optbox ${G.phase === 'reveal' && k === q.correct ? 'correct' : ''}"><span class="L">${LETTERS[k]}</span><span>${esc(o)}</span></div>`).join('')}</div>` : '';
     let foot = '';
     if(G.phase === 'question'){
       const n = Object.keys(G.answers).length, tot = G.teams.filter(t => t.online || G.answers[t.id]).length;
-      foot = `<div class="progress">${n} of ${tot} ship${tot===1?'':'s'} answered · first correct answer wins the treasure</div>
+      foot = `<div class="progress"><span class="timer" id="qtimer">⏱ 0s</span> &nbsp; ${n} of ${tot} ship${tot === 1 ? '' : 's'} answered</div>
         <div class="qactions"><button class="btn ghost" data-act="close-q">Close question (no winner)</button></div>`;
     } else if(G.phase === 'reward'){
-      const w = team(G.winner);
-      const targets = G.teams.filter(t => t.id !== G.winner && t.coins > 0);
-      foot = `<div class="result">🏴‍☠️ ${esc(w ? w.name : 'A ship')} found the treasure first!</div>
-        <div class="progress">Waiting for them to choose a reward on their device…</div>
+      const w = team(G.winner), targets = G.teams.filter(t => t.id !== G.winner && t.coins > 0);
+      foot = `<div class="treasure-title">🏴‍☠️ Treasure found!</div>
+        <div class="result">${w ? shipSVG(w.color).replace('class="ship"', 'class="ship" style="width:70px;vertical-align:middle"') : ''} ${esc(w ? w.name : 'A ship')} was fastest${G.winTime != null ? ` (${G.winTime}s)` : ''}!</div>
+        <div class="progress">Waiting for them to choose: earn ${G.settings.earn} or steal ${G.settings.steal}…</div>
         <div class="qactions"><span class="hint" style="margin:auto 0">Choose for them:</span>
           <button class="btn gold small" data-act="reward" data-kind="earn">Earn ${G.settings.earn} <span class="coin"></span></button>
           ${targets.map(t => `<button class="btn small" data-act="reward" data-kind="steal" data-target="${t.id}">Steal from ${esc(t.name)}</button>`).join('')}
         </div>`;
     } else {
-      const ans = q.type === 'choice' ? `${LETTERS[q.correct]}. ${q.options[q.correct]}` : q.answer.split('|')[0].trim();
       const last = G.used.length >= G.qs.length;
-      foot = `<div class="answer-reveal">Correct answer: <b>${esc(ans)}</b></div>
+      foot = `<div class="answer-reveal">Correct answer: <b>${esc(q.type === 'choice' ? `${LETTERS[q.correct]}. ${q.options[q.correct]}` : String(q.answer).split('|')[0])}</b></div>
         <div class="result">${esc(G.result ? G.result.text : '')}</div>
-        <div class="qactions"><button class="btn gold big" data-act="next">${last ? '🏆 Show Final Treasure' : 'Next Turn ▶'}</button></div>`;
+        <div class="qactions"><button class="btn gold big" data-act="next">${last ? '🏆 Show Final Treasure' : 'Next Island ▶'}</button></div>`;
     }
-    return `<div class="qover"><div class="parchment qscroll">
-      <div class="tag">Island ${G.cur.num}${chooser ? ` · chosen by ${esc(chooser.name)}` : ''}</div>
-      <div class="qtext">${esc(q.text)}</div>${opts}${foot}</div></div>`;
+    return `<div class="qover"><div class="parchment qscroll"><div class="tag">Island ${G.cur.num}</div><div class="qtext">${esc(q.text)}</div>${opts}${foot}</div></div>`;
   }
   function fleetHTML(){
     const inQ = ['question','reward','reveal'].includes(G.phase);
+    const sorted = [...G.teams].sort((a, b) => b.coins - a.coins || a.idx - b.idx);
+    const top = sorted.length ? sorted[0].coins : 0;
     return `<aside class="parchment fleet"><h2>The Fleet</h2><div class="fleet-list">` +
-      G.teams.map(t => {
-        const a = G.answers[t.id];
-        let badge = '';
+      (sorted.length ? sorted.map((t, i) => {
+        const a = G.answers[t.id]; let badge = '';
         if(inQ){
           if(G.winner === t.id) badge = `<span class="badge win">★ Treasure!</span>`;
           else if(G.phase === 'reveal' && a) badge = a.correct ? `<span class="badge right">✓ Correct</span>` : a.late ? `<span class="badge">Too late</span>` : `<span class="badge wrong">✗ Wrong</span>`;
-          else if(a) badge = `<span class="badge ans">Answered</span>`;
-          else badge = `<span class="badge">Thinking…</span>`;
+          else if(a) badge = `<span class="badge ans">Answered!</span>`;
+          else if(G.phase === 'question') badge = `<span class="badge">Thinking…</span>`;
         }
-        const turn = G.phase === 'choosing' && G.turn === t.id;
         const delta = lastCoins[t.id] != null && lastCoins[t.id] !== t.coins ? t.coins - lastCoins[t.id] : 0;
-        return `<div class="ship-row ${turn?'turn':''} ${t.online?'':'offline'} ${G.phase==='choosing'?'clickable':''}" ${G.phase==='choosing'?`data-act="turn" data-id="${t.id}" title="Give ${esc(t.name)} the turn"`:''}>
-          ${shipSVG(t.color)}
-          <div><div class="nm">${esc(t.name)}</div><div class="meta">${turn ? '⚓ Choosing now' : t.online ? '' : 'Offline'} ${badge}</div></div>
+        return `<div class="ship-row ${t.online ? '' : 'offline'} ${top > 0 && t.coins === top ? 'leader' : ''}">
+          <span class="rank">${i + 1}</span>${shipSVG(t.color)}
+          <div><div class="nm">${top > 0 && t.coins === top ? '<span class="crown">👑</span> ' : ''}${esc(t.name)}</div><div class="meta">${t.online ? '' : 'Offline '}${badge}</div></div>
           <div class="right">${coinsHTML(t.coins)}
-            <div class="adj"><button data-act="adj" data-id="${t.id}" data-d="-1" aria-label="Remove a coin">−</button><button data-act="adj" data-id="${t.id}" data-d="1" aria-label="Add a coin">+</button></div></div>
-          ${delta ? `<span class="delta ${delta>0?'plus':'minus'}">${delta>0?'+':''}${delta}</span>` : ''}
+            <div class="adj"><button data-act="adj" data-id="${t.id}" data-d="-10" aria-label="Remove 10 coins">−</button><button data-act="adj" data-id="${t.id}" data-d="10" aria-label="Add 10 coins">+</button></div></div>
+          ${delta ? `<span class="delta ${delta > 0 ? 'plus' : 'minus'}">${delta > 0 ? '+' : ''}${delta}</span>` : ''}
         </div>`;
-      }).join('') + `</div><div class="fleet-foot"><button class="btn small" data-act="qr">Show join code</button><button class="btn small danger" data-act="end">End voyage</button></div></aside>`;
+      }).join('') : '<p class="hint">No ships yet.</p>') +
+      `</div><div class="fleet-foot"><button class="btn small" data-act="qr">Join code</button><button class="btn small danger" data-act="end">End voyage</button></div></aside>`;
   }
   function renderBoard(){
+    const banner = G.phase === 'choosing' ? `<div class="banner"><span>🧭 <b>Captain</b>, tap an island to reveal its question!</span></div>` : '';
     app.innerHTML = `
       <header class="topbar">${compassSVG()}<h1>The Treasure Voyage</h1>
         <span>Code <span class="code">${G.code.toUpperCase()}</span></span>${netPill()}<span class="sp"></span>
-        <span>${G.used.length} / ${G.qs.length} islands explored</span>
-</header>
-      <div class="board">${mapHTML()}${fleetHTML()}</div>`;
+        <span>${G.used.length} / ${G.qs.length} islands explored</span>${muteBtn()}</header>
+      <div class="board"><div class="parchment mapwrap" id="mapwrap"><div id="map"></div>${compassSVG('map-compass')}${banner}${overlayHTML()}</div>${fleetHTML()}</div>`;
     requestAnimationFrame(drawMap);
     G.teams.forEach(t => lastCoins[t.id] = t.coins);
+    clearInterval(qTimer);
+    if(G.phase === 'question'){
+      const tick = () => { const el = $('#qtimer'); if(el) el.textContent = '⏱ ' + Math.floor((Date.now() - G.qStart)/1000) + 's'; };
+      tick(); qTimer = setInterval(tick, 500);
+    }
   }
-  function rankList(teams, me){
-    const sorted = [...teams].sort((a,b) => b.coins - a.coins);
+  function rankList(teams){
+    const sorted = [...teams].sort((a, b) => b.coins - a.coins);
     let rank = 0, prev = null;
-    return `<ol class="lb">` + sorted.map((t,i) => {
-      if(t.coins !== prev){ rank = i+1; prev = t.coins; }
-      return `<li class="r${rank} ${rank===1?'first':''} ${me===t.id?'me':''}"><span class="rk">${rank}</span>${shipSVG(t.color)}<span class="nm">${esc(t.name)}${me===t.id?' (you)':''}</span>${coinsHTML(t.coins)}</li>`;
+    return `<ol class="lb">` + sorted.map((t, i) => {
+      if(t.coins !== prev){ rank = i + 1; prev = t.coins; }
+      return `<li class="r${rank} ${rank === 1 ? 'first' : ''}"><span class="rk">${rank}</span>${shipSVG(t.color)}<span class="nm">${rank === 1 ? '👑 ' : ''}${esc(t.name)}</span>${coinsHTML(t.coins)}</li>`;
     }).join('') + `</ol>`;
   }
   function winnersText(teams){
     if(!teams.length) return 'No ships sailed this voyage.';
-    const top = Math.max(...teams.map(t => t.coins));
-    const w = teams.filter(t => t.coins === top).map(t => t.name);
+    const top = Math.max(...teams.map(t => t.coins)), w = teams.filter(t => t.coins === top).map(t => t.name);
     return w.length === 1 ? `${w[0]} wins the treasure!` : `It's a tie: ${w.join(' & ')} share the treasure!`;
   }
   function renderFinalHost(){
+    clearInterval(qTimer);
     app.innerHTML = `<div class="final">${chestSVG()}<h1>${esc(winnersText(G.teams))}</h1>
       <div class="parchment panel"><h2 style="font-size:2rem">Final Treasure Count</h2>${rankList(G.teams)}
       <div class="row" style="justify-content:center"><button class="btn gold" data-act="new-voyage">Back to captain's quarters</button></div></div></div>`;
   }
   function renderModal(){
     const m = $('#modal');
-    if(!showQR || !G || G.phase === 'lobby'){ m.innerHTML = ''; return; }
-    const url = joinUrl(G.code, G.broker);
-    m.innerHTML = `<div class="modal" data-act="qr"><div class="parchment panel" onclick="event.stopPropagation()">
-      <h2 style="font-size:2rem">Join the Voyage</h2><div class="qrbox">${qrSVG(url)}</div>
+    if(!showQR || !G || G.phase === 'lobby' || view !== 'game'){ m.innerHTML = ''; return; }
+    m.innerHTML = `<div class="modal" data-close="1"><div class="parchment panel">
+      <h2 style="font-size:2rem">Join the Voyage</h2><div class="qrbox">${qrSVG(joinUrl(G.code))}</div>
       <div class="joininfo">Code <span class="code">${G.code.toUpperCase()}</span><br><span class="hint">Ships: ${G.teams.length} of ${G.teamCount}</span></div>
-      ${G.teams.length >= G.teamCount ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn small" data-act="fleet" data-d="1">+ Allow one more ship</button></div>` : ''}
-      <div class="row" style="justify-content:center;margin-top:12px"><button class="btn" data-act="qr">Close</button></div></div></div>`;
+      <div class="row" style="justify-content:center;margin-top:12px">${G.teams.length >= G.teamCount ? `<button class="btn small" data-mact="more">+ Allow one more ship</button>` : ''}<button class="btn" data-close="1">Close</button></div></div></div>`;
   }
-  $('#modal').addEventListener('click', e => { const b = e.target.closest('[data-act="qr"]'); if(b){ showQR = false; renderModal(); } });
+  $('#modal').addEventListener('click', e => {
+    if(e.target.closest('[data-mact="more"]')){ G.teamCount = clamp(G.teamCount + 1, 1, 12); broadcast(); return; }
+    if(e.target.matches('[data-close]')){ showQR = false; renderModal(); }
+  });
   let rT; window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { if(G && $('#mapwrap')) drawMap(); }, 120); });
 
-  // initial
-  if(G && G.phase !== 'final' && G.phase !== 'lobby'){ renderSetup(); }
-  else if(G && G.phase === 'lobby'){ resumeVoyage(); }
-  else renderSetup();
+  if(G && G.phase === 'lobby') resumeVoyage(); else renderSetup();
 }
 
 /* ======================================================================
-   PLAYER / TEAM DEVICE
+   PLAYER / TEAM PHONE
    ====================================================================== */
 function startPlayer(code){
   const KEY = 'tv.team.' + code;
-  let me = store.get(KEY, null);         // {teamId, name}
-  let ST = null;                         // latest state from host
-  let client = null, brokerOk = false, hostSeen = false, lastHost = 0, lastErr = '';
-  let connected = false;                 // relay reachable AND main screen answering
-  const cid = randStr(14);
-  const base = topicBase(code);
-  const bIdx = Math.max(0, parseInt(params.get('b') || '0', 10) || 0);
-  let nameDraft = '', draft = '', choiceSel = null, pendingSubmit = false, joining = false, kicked = false;
+  let me = store.get(KEY, null);              // {teamId, name}
+  let ST = null, ships = null;
+  const cid = randStr(14), base = topicBase(code);
+  let pcs = [], active = null, hostSeen = false, lastHost = 0, raceAt = 0, lastErr = '', connected = false;
+  let draft = '', choiceSel = null, pendingSubmit = false, joining = false, kicked = false, shake = false;
 
-  function setConnected(){
-    const was = connected; connected = brokerOk && hostSeen;
-    if(was !== connected) render();
-  }
-  function connect(){
-    if(typeof mqtt === 'undefined'){ lastErr = 'Could not load the game connection. Check your internet.'; render(); return; }
-    const list = brokerList(); const b = list[bIdx] || list[0];
-    try{
-      client = mqtt.connect(b.url, mqttOpts(b, 'tvp_' + cid, {will:{topic:base + 'up', payload:JSON.stringify({t:'bye', cid}), qos:0, retain:false}}));
-    }catch(e){ lastErr = 'Connection is blocked here. Open the game from its web link.'; render(); return; }
-    client.on('connect', () => {
-      brokerOk = true;
-      client.subscribe(base + 'down/' + cid, {qos:1}, () => greet());
-      setConnected();
-    });
-    client.on('close', () => { brokerOk = false; setConnected(); });
-    client.on('message', (t, p) => { let d; try{ d = JSON.parse(p.toString()); }catch(e){ return; } onData(d); });
-  }
-  function up(msg){
-    if(!client || !client.connected) return false;
-    msg.cid = cid;
-    try{ client.publish(base + 'up', JSON.stringify(msg), {qos:1}); return true; }catch(e){ return false; }
-  }
+  /* ----- networking: try every relay at once, keep the first that reaches the main screen ----- */
+  function pub(c, msg){ msg.cid = cid; try{ c.publish(base + 'up', JSON.stringify(msg), {qos:1}); }catch(e){} }
+  function up(msg){ if(!active || !active.connected) return false; pub(active, msg); return true; }
   function greet(){ if(kicked) return; if(me) up({t:'ping', teamId:me.teamId}); else up({t:'hello'}); }
+  function setConnected(){ const was = connected; connected = !!active && active.connected && hostSeen; if(was !== connected) render(); }
+  function race(){
+    pcs.forEach(c => { try{ c && c.end(true); }catch(e){} });
+    pcs = []; active = null; hostSeen = false; raceAt = Date.now(); setConnected();
+    if(typeof mqtt === 'undefined'){ lastErr = 'Could not load the game connection. Check your internet.'; render(); return; }
+    brokerList().forEach((b, i) => {
+      let c;
+      try{ c = mqtt.connect(b.url, mqttOpts(b, 'tvp_' + cid + i, {reconnectPeriod:3000, will:{topic:base + 'up', payload:JSON.stringify({t:'bye', cid}), qos:0, retain:false}})); }catch(e){ return; }
+      pcs[i] = c;
+      c.on('connect', () => {
+        c.subscribe(base + 'down/' + cid, {qos:1}, () => { if(!active) pub(c, {t:'hello'}); else if(c === active) greet(); });
+        if(c === active) setConnected();
+      });
+      c.on('message', (t, p) => {
+        let d; try{ d = JSON.parse(p.toString()); }catch(e){ return; }
+        if(!active){ active = c; pcs.forEach(o => { if(o && o !== c){ try{ o.end(true); }catch(e){} } }); if(me) greet(); }
+        if(c !== active) return;
+        onData(d);
+      });
+      c.on('close', () => { if(c === active) setConnected(); });
+      c.on('error', () => {});
+    });
+  }
   setInterval(() => {
-    if(!client || !client.connected || kicked) return;
+    if(kicked) return;
+    if(!active){
+      pcs.forEach(c => { if(c && c.connected) pub(c, {t:'hello'}); });
+      if(Date.now() - raceAt > 7000){ lastErr = 'Looking for the voyage… make sure the main screen is open and the code is right.'; render(); }
+      return;
+    }
     greet();
-    if(hostSeen && Date.now() - lastHost > 15000){ hostSeen = false; lastErr = 'Lost the main screen. Waiting for it to come back…'; setConnected(); }
-    else if(!hostSeen){ lastErr = 'Looking for the voyage… make sure the main screen is open and the code is right.'; render(); }
-  }, 4000);
+    const gap = Date.now() - lastHost;
+    if(hostSeen && gap > 15000){ hostSeen = false; lastErr = 'Lost the main screen. Reconnecting…'; setConnected(); }
+    if(gap > 30000) race();
+  }, 3000);
   document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible' && client && !kicked){ if(!client.connected) client.reconnect(); else greet(); }
+    if(document.visibilityState !== 'visible' || kicked) return;
+    if(!active || !active.connected || Date.now() - lastHost > 15000) race(); else greet();
   });
 
   function onData(d){
     if(!d || typeof d !== 'object') return;
     hostSeen = true; lastHost = Date.now();
-    if(lastErr && (lastErr.startsWith('Looking') || lastErr.startsWith('Lost'))) lastErr = '';
+    if(lastErr && /^(Looking|Lost)/.test(lastErr)) lastErr = '';
     setConnected();
-    if(d.t === 'hostok' || d.t === 'pong'){ render(); return; }
-    if(d.t === 'welcome'){ me = {teamId:d.teamId, name:d.name}; store.set(KEY, me); joining = false; lastErr=''; render(); }
-    else if(d.t === 'error'){ joining = false; lastErr = d.msg; render(); }
-    else if(d.t === 'unknown'){ me = null; ST = null; store.del(KEY); joining = false; lastErr = 'This voyage has restarted. Please board again.'; render(); }
-    else if(d.t === 'replaced'){ ST = null; lastErr = 'This ship is now sailing on another device.'; kicked = false; me = null; render(); }
-    else if(d.t === 'kicked'){ kicked = true; store.del(KEY); me = null; ST = null; try{ client.end(true); }catch(e){} render(); }
-    else if(d.t === 'state'){
-      const prev = ST; ST = d;
-      if(!prev || !prev.cur || !d.cur || prev.cur.num !== d.cur.num){ draft = ''; choiceSel = null; pendingSubmit = false; }
-      if(d.you.status !== 'none') pendingSubmit = false;
-      render();
+    switch(d.t){
+      case 'hostok': ships = d.ships; if(!me) render(); return;
+      case 'pong': return;
+      case 'welcome': me = {teamId:d.teamId, name:d.name}; store.set(KEY, me); joining = false; lastErr = ''; SFX.play('join'); buzz(60); render(); return;
+      case 'error': joining = false; lastErr = d.msg; render(); return;
+      case 'unknown': me = null; ST = null; store.del(KEY); joining = false; lastErr = 'This voyage has restarted. Please choose your ship again.'; up({t:'hello'}); render(); return;
+      case 'replaced': me = null; ST = null; lastErr = 'Your ship is now sailing on another phone.'; render(); return;
+      case 'kicked': kicked = true; store.del(KEY); me = null; ST = null; pcs.forEach(c => { try{ c && c.end(true); }catch(e){} }); render(); return;
+      case 'state': {
+        const prev = ST; ST = d;
+        if(!prev || prev.island !== d.island){ draft = ''; choiceSel = null; pendingSubmit = false; }
+        if(d.you.status !== 'none') pendingSubmit = false;
+        playerFx(prev, d); render(); return;
+      }
     }
+  }
+  function playerFx(p, n){
+    if(!p || !me) return;
+    if(n.phase === 'countdown' && (p.phase !== 'countdown' || p.count !== n.count)) SFX.play('tick');
+    if(n.phase === 'question' && p.phase !== 'question'){ SFX.play('go'); buzz(120); }
+    if(n.you.status === 'wrong' && p.you.status !== 'wrong'){ SFX.play('wrong'); shake = true; buzz([80,50,80]); }
+    if(n.phase === 'reward' && p.phase !== 'reward' && n.winner === me.teamId){ SFX.play('correct'); flash('Treasure found!'); rainCoins(30); buzz([100,60,200]); }
+    if(n.phase === 'reveal' && p.phase !== 'reveal' && n.result){
+      if(n.result.kind === 'steal' && n.result.target === me.teamId){ SFX.play('steal'); flash('☠ Coins stolen!', 'bad'); buzz(300); }
+      else if(n.result.winner === me.teamId){ SFX.play('coins'); rainCoins(35); }
+    }
+    if(n.phase === 'final' && p.phase !== 'final'){ SFX.play('fanfare'); rainCoins(40); }
   }
   const sendMsg = m => { if(!connected || !up(m)) toast('Reconnecting… try again in a moment.'); };
 
-  /* ----- player rendering ----- */
+  /* ----- rendering ----- */
   function myTeam(){ return ST && me ? ST.teams.find(t => t.id === me.teamId) : null; }
   function header(){
     const t = myTeam();
     return `<div class="phead">${t ? shipSVG(t.color) : compassSVG()}<div><div class="nm">${esc(t ? t.name : 'The Treasure Voyage')}</div>
-      <div style="font-size:.8em;opacity:.85">${connected ? 'Voyage ' + code.toUpperCase() : '⚠ Reconnecting…'}</div></div>${t ? coinsHTML(t.coins) : ''}</div>`;
+      <div style="font-size:.8em;opacity:.85">${connected ? 'Voyage ' + code.toUpperCase() : '⚠ Connecting…'}</div></div>
+      <span class="sp"></span>${t ? coinsHTML(t.coins) : ''}${muteBtn()}</div>`;
   }
   function render(){
-    const focused = document.activeElement && document.activeElement.id === 'ans';
-    const focusedName = document.activeElement && document.activeElement.id === 'tname';
     let body = '';
-    if(kicked) body = `<div class="parchment pcard"><h2>You left the voyage</h2><p>The captain removed this ship. Ask your teacher if you need to rejoin.</p>
-      <button class="btn" onclick="location.reload()">Join again</button></div>`;
-    else if(!me) body = joinForm();
+    if(kicked) body = `<div class="parchment pcard"><h2>You left the voyage</h2><p>The captain removed this ship.</p><button class="btn" onclick="location.reload()">Join again</button></div>`;
+    else if(!me) body = joinView();
     else if(!ST) body = `<div class="parchment pcard"><h2>Boarding…</h2><div class="spinner"></div><p class="hint">${esc(lastErr || 'Connecting to the main screen')}</p></div>`;
     else body = phaseView();
     app.innerHTML = `<div class="pwrap">${header()}${body}</div>`;
-    const ans = $('#ans'); if(ans){ ans.value = draft; if(focused) ans.focus(); }
-    const tn = $('#tname'); if(tn){ tn.value = nameDraft; if(focusedName) tn.focus(); }
+    const ans = $('#ans'); if(ans) ans.value = draft;
+    if(shake){ shake = false; const c = $('.pcard'); if(c){ c.classList.add('shake'); } }
   }
-  function joinForm(){
-    return `<div class="parchment pcard">
-      ${compassSVG()}<h2 style="margin-top:8px">Join The Treasure Voyage</h2>
-      <p class="hint">Choose a name for your team's ship.</p>
-      <form id="joinForm" autocomplete="off">
-        <input type="text" id="tname" maxlength="24" placeholder="e.g. The Golden Gull" class="answer-in" aria-label="Team name">
-        <button class="btn gold big full" ${connected && !joining ? '' : 'disabled'}>${connected ? (joining ? 'Boarding…' : 'Board the ship ⛵') : 'Connecting…'}</button>
-      </form>
-      ${lastErr ? `<div class="feedback ${connected?'bad':'neutral'}" style="font-size:1em">${esc(lastErr)}</div>` : ''}
-    </div>`;
+  function joinView(){
+    if(!connected || !ships)
+      return `<div class="parchment pcard">${compassSVG()}<h2 style="margin-top:8px">Joining the voyage…</h2><div class="spinner"></div><p class="hint">${esc(lastErr || 'Connecting to the main screen')}</p></div>`;
+    return `<div class="parchment pcard"><h2>Choose your ship</h2><p class="hint">Tap your team's ship to come aboard.</p>
+      <div class="shipgrid">${ships.map(s => `<button class="shipbtn" data-ship="${esc(s.name)}" ${s.status === 'taken' || joining ? 'disabled' : ''}>
+        ${shipSVG(s.color)}<span>${esc(s.name)}</span><small>${s.status === 'taken' ? 'Taken' : s.status === 'away' ? 'Rejoin' : 'Free'}</small></button>`).join('')}</div>
+      ${lastErr ? `<div class="feedback bad" style="font-size:1em">${esc(lastErr)}</div>` : ''}</div>`;
   }
   function fleetMini(){
-    return `<div class="mini-fleet">${[...ST.teams].sort((a,b)=>b.coins-a.coins).map(t => `<div class="mf ${ST.phase==='choosing'&&ST.turn===t.id?'turn':''}">${shipSVG(t.color)}<b>${esc(t.name)}${me&&t.id===me.teamId?' (you)':''}</b>${coinsHTML(t.coins)}</div>`).join('')}</div>`;
+    return `<div class="mini-fleet">${[...ST.teams].sort((a, b) => b.coins - a.coins).map((t, i) => `<div class="mf ${t.id === me.teamId ? 'turn' : ''}">${shipSVG(t.color)}<b>${i === 0 && t.coins > 0 ? '👑 ' : ''}${esc(t.name)}${t.id === me.teamId ? ' (you)' : ''}</b>${coinsHTML(t.coins)}</div>`).join('')}</div>`;
   }
-  function islandGrid(active){
+  function islandGrid(){
     let h = '<div class="pgrid">';
-    for(let n=1;n<=ST.total;n++){
-      const used = ST.used.includes(n);
-      h += `<button class="island ${used?'used':''} ${active&&!used?'pickable':''}" ${active&&!used?`data-pick="${n}"`:'disabled'} aria-label="Island ${n}${used?' (explored)':''}">${islandSVG(n-1, used)}<span class="n">${n}</span></button>`;
-    }
+    for(let n = 1; n <= ST.total; n++){ const used = ST.used.includes(n); h += `<div class="island ${used ? 'used' : ''}" aria-label="Island ${n}">${islandSVG(n-1, used)}<span class="n">${n}</span></div>`; }
     return h + '</div>';
   }
   function phaseView(){
-    const t = myTeam(), you = ST.you;
-    const turnTeam = ST.teams.find(x => x.id === ST.turn);
+    const t = myTeam();
     switch(ST.phase){
       case 'lobby':
-        return `<div class="parchment pcard"><h2>Welcome aboard!</h2>${t ? shipSVG(t.color).replace('class="ship"','class="ship" style="width:160px"') : ''}
-          <p>Your ship <b>${esc(me.name)}</b> is in the harbour.</p><p class="hint">Waiting for the captain to set sail…</p>${fleetMini()}</div>`;
+        return `<div class="parchment pcard"><h2>Welcome aboard!</h2>${t ? shipSVG(t.color).replace('class="ship"', 'class="ship" style="width:170px"') : ''}
+          <p style="font-size:1.2em">You are <b>${esc(me.name)}</b></p><p class="hint">Waiting for the captain to set sail…</p>${fleetMini()}</div>`;
       case 'choosing':
-        if(ST.turn === me.teamId)
-          return `<div class="parchment pcard"><h2>Your turn, Captain!</h2><p>Choose an island to explore. Every ship will see the question at the same time.</p>${islandGrid(true)}</div>`;
-        return `<div class="parchment pcard"><h2>${esc(turnTeam ? turnTeam.name : 'Another ship')} is choosing…</h2><p class="hint">Get ready! The question will appear here.</p>${islandGrid(false)}${fleetMini()}</div>`;
+        return `<div class="parchment pcard"><h2>The captain is choosing an island…</h2><p class="hint">Get ready! Answer fast to win the treasure.</p>${islandGrid()}${fleetMini()}</div>`;
+      case 'countdown':
+        return `<div class="parchment pcard"><h2>Island ${ST.island}</h2><div class="count" key="${ST.count}">${ST.count}</div><p style="font-size:1.2em;font-weight:900">Get ready…</p></div>`;
       case 'question': case 'reward': case 'reveal': return questionView();
-      case 'final': {
-        return `<div class="parchment pcard">${chestSVG()}<h2>Final Treasure Count</h2>${rankListP()}</div>`;
-      }
+      case 'final': return `<div class="parchment pcard">${chestSVG()}<h2>Final Treasure Count</h2>${rankListP()}</div>`;
     }
     return '';
   }
   function rankListP(){
-    const sorted = [...ST.teams].sort((a,b) => b.coins - a.coins);
-    let rank = 0, prev = null;
-    return `<ol class="lb">` + sorted.map((t,i) => {
-      if(t.coins !== prev){ rank = i+1; prev = t.coins; }
-      return `<li class="r${rank} ${me&&t.id===me.teamId?'me':''}" style="font-size:1em"><span class="rk">${rank}</span>${shipSVG(t.color).replace('class="ship"','class="ship" style="width:48px"')}<span class="nm">${esc(t.name)}</span>${coinsHTML(t.coins)}</li>`;
-    }).join('') + `</ol>`;
+    const sorted = [...ST.teams].sort((a, b) => b.coins - a.coins); let rank = 0, prev = null;
+    return `<ol class="lb">` + sorted.map((t, i) => { if(t.coins !== prev){ rank = i + 1; prev = t.coins; }
+      return `<li class="r${rank} ${t.id === me.teamId ? 'me' : ''}" style="font-size:1em"><span class="rk">${rank}</span>${shipSVG(t.color).replace('class="ship"', 'class="ship" style="width:48px"')}<span class="nm">${esc(t.name)}</span>${coinsHTML(t.coins)}</li>`; }).join('') + `</ol>`;
   }
   function questionView(){
     const q = ST.cur, you = ST.you;
     let h = `<div class="parchment pcard"><div class="hint" style="font-family:var(--title);font-size:1.3em">Island ${q.num}</div><div class="qtext">${esc(q.text)}</div>`;
-    const canAnswer = ST.phase === 'question' && you.status === 'none';
-    if(canAnswer){
+    if(ST.phase === 'question' && you.status === 'none'){
       if(q.type === 'choice'){
-        h += q.options.map((o,k) => `<button class="choice ${choiceSel===k?'sel':''}" data-choice="${k}" ${pendingSubmit?'disabled':''}><span class="L">${LETTERS[k]}</span><span>${esc(o)}</span></button>`).join('');
-        h += `<button class="btn gold big full" id="submit" ${choiceSel==null||pendingSubmit?'disabled':''}>${pendingSubmit?'Sending…':'Submit answer'}</button>`;
+        h += q.options.map((o, k) => `<button class="choice ${choiceSel === k ? 'sel' : ''}" data-choice="${k}" ${pendingSubmit ? 'disabled' : ''}><span class="L">${LETTERS[k]}</span><span>${esc(o)}</span></button>`).join('');
+        h += `<button class="btn gold big full" id="submit" ${choiceSel == null || pendingSubmit ? 'disabled' : ''}>${pendingSubmit ? 'Sending…' : 'Submit answer ⚡'}</button>`;
       } else {
-        h += `<input type="text" id="ans" class="answer-in" placeholder="Type your answer" autocomplete="off" ${pendingSubmit?'disabled':''}>
-          <button class="btn gold big full" id="submit" ${pendingSubmit?'disabled':''}>${pendingSubmit?'Sending…':'Submit answer'}</button>`;
+        h += `<input type="text" id="ans" class="answer-in" placeholder="Type your answer" autocomplete="off" ${pendingSubmit ? 'disabled' : ''}>
+          <button class="btn gold big full" id="submit" ${pendingSubmit ? 'disabled' : ''}>${pendingSubmit ? 'Sending…' : 'Submit answer ⚡'}</button>`;
       }
-      h += `<p class="hint" style="margin-top:10px">You have one try, so check before you submit!</p>`;
+      h += `<p class="hint" style="margin-top:10px">One try only. The fastest correct ship wins!</p>`;
     } else if(ST.phase === 'question'){
-      h += you.status === 'wrong'
-        ? `<div class="feedback bad">Not this time, sailor. Your one try is used. Wait for the round to finish.</div>`
-        : `<div class="feedback neutral">Answer sent.</div>`;
+      h += you.status === 'wrong' ? `<div class="feedback bad">Not this time, sailor! Wait for the next island.</div>` : `<div class="feedback neutral">Answer sent…</div>`;
     }
     if(ST.phase === 'reward'){
       const w = ST.teams.find(t => t.id === ST.winner);
       if(ST.winner === me.teamId){
         const targets = ST.teams.filter(t => t.id !== me.teamId && t.coins > 0);
-        h += `<div class="feedback good">Correct! You found the treasure first! Choose your reward:</div>
-          <div class="targets"><button class="btn gold big" data-reward="earn">Earn ${ST.settings.earn} <span class="coin"></span> for our ship</button>
-          ${targets.length ? `<p class="hint" style="margin:8px 0 0">…or steal up to ${ST.settings.steal} <span class="coin"></span> from:</p>` + targets.map(t => `<button class="btn" data-reward="steal" data-target="${t.id}">${esc(t.name)} (${t.coins} coin${t.coins===1?'':'s'})</button>`).join('') : `<p class="hint" style="margin:8px 0 0">No other ship has coins to steal yet.</p>`}</div>`;
+        h += `<div class="feedback good">Correct! You were the fastest! Choose your treasure:</div>
+          <div class="targets"><button class="btn gold big" data-reward="earn">💰 Earn ${ST.settings.earn} coins</button>
+          ${targets.length ? `<p class="hint" style="margin:8px 0 0">…or ☠ steal ${ST.settings.steal} coins from:</p>` + targets.map(t => `<button class="btn" data-reward="steal" data-target="${t.id}">${esc(t.name)} (${t.coins} coins)</button>`).join('') : `<p class="hint" style="margin:8px 0 0">No other ship has coins to steal yet.</p>`}</div>`;
       } else {
-        h += you.status === 'wrong' ? `<div class="feedback bad">Not this time, sailor.</div>` : you.status === 'late' ? `<div class="feedback neutral">Too late! Another ship got there first.</div>` : '';
+        h += you.status === 'wrong' ? `<div class="feedback bad">Not this time, sailor!</div>` : you.status === 'late' ? `<div class="feedback neutral">Too late! Another ship was faster.</div>` : '';
         h += `<div class="feedback neutral">${esc(w ? w.name : 'A ship')} found the treasure first and is choosing a reward…</div>`;
       }
     }
     if(ST.phase === 'reveal'){
-      const mine = you.status === 'correct' ? `<div class="feedback good">Correct! Well sailed!</div>`
+      h += you.status === 'correct' ? `<div class="feedback good">Correct! Well sailed!</div>`
         : you.status === 'wrong' ? `<div class="feedback bad">Your answer wasn't correct this time.</div>`
-        : you.status === 'late' ? `<div class="feedback neutral">Too late! Another ship got there first.</div>`
+        : you.status === 'late' ? `<div class="feedback neutral">Too late! Another ship was faster.</div>`
         : `<div class="feedback neutral">Your ship didn't answer this one.</div>`;
-      h += mine + `<p style="font-size:1.15em">Correct answer: <b>${esc(ST.reveal || '')}</b></p><p style="font-size:1.15em;font-weight:900">${esc(ST.result ? ST.result.text : '')}</p>${fleetMini()}`;
+      h += `<p style="font-size:1.15em">Correct answer: <b>${esc(ST.reveal || '')}</b></p><p style="font-size:1.2em;font-weight:900">${esc(ST.result ? ST.result.text : '')}</p>${fleetMini()}`;
     }
     return h + '</div>';
   }
 
-  /* ----- player events ----- */
-  app.addEventListener('submit', e => {
-    if(e.target.id !== 'joinForm') return; e.preventDefault();
-    const name = $('#tname').value.replace(/\s+/g,' ').trim();
-    if(!name){ lastErr = 'Please enter a team name.'; render(); return; }
-    if(!connected){ lastErr = 'Still connecting… try again in a moment.'; render(); return; }
-    joining = true; lastErr = ''; me = null;
-    up({t:'join', name}); render();
-    setTimeout(() => { if(joining){ joining = false; lastErr = 'No answer from the main screen. Try again.'; render(); } }, 8000);
-  });
-  app.addEventListener('input', e => { if(e.target.id === 'ans') draft = e.target.value; if(e.target.id === 'tname') nameDraft = e.target.value; });
+  /* ----- events ----- */
+  app.addEventListener('input', e => { if(e.target.id === 'ans') draft = e.target.value; });
   app.addEventListener('keydown', e => { if(e.target.id === 'ans' && e.key === 'Enter'){ e.preventDefault(); submitAnswer(); } });
   app.addEventListener('click', e => {
-    const p = e.target.closest('[data-pick]'); if(p){ sendMsg({t:'pick', n:+p.dataset.pick}); return; }
+    const m = e.target.closest('[data-act="mute"]'); if(m){ SFX.toggle(); m.textContent = SFX.muted ? '🔇' : '🔊'; return; }
+    const s = e.target.closest('[data-ship]');
+    if(s && !s.disabled){
+      if(!connected){ toast('Still connecting… try again in a moment.'); return; }
+      joining = true; lastErr = ''; up({t:'join', ship:s.dataset.ship}); render();
+      setTimeout(() => { if(joining){ joining = false; lastErr = 'No answer from the main screen. Tap your ship again.'; render(); } }, 8000);
+      return;
+    }
     const c = e.target.closest('[data-choice]'); if(c && !c.disabled){ choiceSel = +c.dataset.choice; render(); return; }
     if(e.target.closest('#submit')){ submitAnswer(); return; }
-    const r = e.target.closest('[data-reward]'); if(r){ sendMsg({t:'reward', kind:r.dataset.reward, target:r.dataset.target}); r.disabled = true; return; }
+    const r = e.target.closest('[data-reward]'); if(r && !r.disabled){ sendMsg({t:'reward', kind:r.dataset.reward, target:r.dataset.target}); r.disabled = true; return; }
   });
   function submitAnswer(){
     if(!ST || !ST.cur || pendingSubmit) return;
     const answer = ST.cur.type === 'choice' ? choiceSel : draft.trim();
-    if(answer == null || answer === ''){ toast('Write an answer first.'); return; }
+    if(answer == null || answer === ''){ toast('Choose an answer first.'); return; }
     pendingSubmit = true; sendMsg({t:'answer', num:ST.cur.num, answer}); render();
     setTimeout(() => { if(pendingSubmit){ pendingSubmit = false; render(); } }, 6000);
   }
 
-  render(); connect();
+  render(); race();
 }
 })();
 </script>
