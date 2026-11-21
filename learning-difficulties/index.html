@@ -1033,6 +1033,11 @@ section.slide#r09 .gc .gi.img{--s:130px}
 .slide#r06 .dz.kidsL{height:165px}
 section.slide#r06 .bx ul{font-size:21.5px!important}
 
+/* ===== solo mode: a single activity opened by its own link ===== */
+body.solo #chrome{display:none!important}
+body.solo .foot .pg{visibility:hidden}
+body.solo .slide{animation:none!important}
+
 </style>
 </head>
 <body>
@@ -1786,6 +1791,7 @@ slides.forEach((s, i) => {
 
 function go(i, fromHash){
   i = Math.max(0, Math.min(slides.length - 1, i));
+  if (window.__solo !== undefined && i !== window.__solo) return;
   if (i === cur) return;
   const dir = i > cur ? 'in-next' : 'in-prev';
   if (cur >= 0){ slides[cur].classList.remove('active'); hooks[slides[cur].id]?.leave?.(); }
@@ -2219,8 +2225,18 @@ $('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('
 addEventListener('keydown', e => { if (e.key === 'Escape') $('#lightbox').classList.remove('show'); }, true);
 document.querySelectorAll('.bx ul').forEach(u => [...u.children].forEach((li, j) => li.style.setProperty('--j', j)));
 function fromHash(){ const m = location.hash.match(/^#slide-(\d+)$/); return m ? +m[1] - 1 : 0; }
-addEventListener('hashchange', () => go(fromHash(), true));
-go(fromHash(), true);
+const SOLO = { read: 'sim-read', write: 'sim-write', math: 'sim-math', att: 'sim-att' };
+const soloKey = (new URLSearchParams(location.search).get('a') || (location.hash.match(/^#a=(\w+)$/) || [])[1] || '').trim();
+const soloId = SOLO[soloKey];
+const soloIdx = soloId ? [...slides].findIndex(s => s.id === soloId) : -1;
+if (soloIdx >= 0){
+  document.body.classList.add('solo');
+  window.__solo = soloIdx;
+  go(soloIdx, true);
+} else {
+  addEventListener('hashchange', () => go(fromHash(), true));
+  go(fromHash(), true);
+}
 })();
 </script>
 </body>
