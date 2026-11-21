@@ -1349,7 +1349,7 @@ section.slide#r06 .bx ul{font-size:21.5px!important}
   <div class="sim">
     <div class="simbox z" style="--i:2;padding:24px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="seg" id="mirSeg"><button class="on" data-t="word">كلمة «أمل»</button><button data-t="star">نجمة</button><button data-t="line">خط متعرّج</button></div>
+        <div class="seg" id="mirSeg"><button class="on" data-t="word">كلمة «تعلم»</button><button data-t="star">نجمة</button><button data-t="line">خط متعرّج</button></div>
         <button class="btn ghost" id="mirClear" style="padding:8px 20px 6px;font-size:24px"><svg class="ico"><use href="#i-reset"/></svg>امسح</button>
       </div>
       <div id="mirrorWrap"><canvas id="mirror" width="1100" height="600" aria-label="لوحة رسم معكوسة الحركة"></canvas></div>
@@ -2013,7 +2013,7 @@ const PASSAGE = 'تعلم القراءة رحلة ممتعة لمعظم الأط
     ctx.save(); ctx.strokeStyle = '#B9A6E8'; ctx.lineWidth = 5; ctx.setLineDash([4, 14]); ctx.lineCap = 'round';
     if (target === 'star'){ ctx.beginPath(); for (let i = 0; i <= 10; i++){ const r = i % 2 ? 110 : 250, a = -Math.PI / 2 + i * Math.PI / 5; const x = W / 2 + r * Math.cos(a), y = H / 2 + 20 + r * Math.sin(a); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
     else if (target === 'line'){ ctx.beginPath(); ctx.moveTo(110, 300); for (let i = 1; i <= 8; i++) ctx.lineTo(110 + i * 110, i % 2 ? 140 : 460); ctx.stroke(); }
-    else { ctx.setLineDash([]); ctx.fillStyle = 'rgba(108,69,194,.14)'; ctx.font = '800 330px "Tajawal", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl'; ctx.fillText('أمل', W / 2, H / 2 + 10); ctx.setLineDash([4, 12]); ctx.lineWidth = 3; ctx.strokeText('أمل', W / 2, H / 2 + 10); }
+    else { ctx.setLineDash([]); ctx.fillStyle = 'rgba(108,69,194,.14)'; ctx.font = '800 250px "Tajawal", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl'; ctx.fillText('تعلم', W / 2, H / 2 + 10); ctx.setLineDash([4, 12]); ctx.lineWidth = 3; ctx.strokeText('تعلم', W / 2, H / 2 + 10); }
     ctx.restore();
   }
   function pt(e){ const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
