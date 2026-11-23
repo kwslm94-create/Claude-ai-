@@ -101,6 +101,7 @@ footer{text-align:center;color:var(--soft);font-size:14px;padding:0 16px 24px}
   <button data-tab="speak">🎤 انطق</button>
   <button data-tab="listen">👂 استمع واختر</button>
   <button data-tab="fill">🧩 أكمل الكلمة</button>
+  <button onclick="location.href='sounds.html'">🔊 الأصوات فقط</button>
 </nav>
 
 <main>
@@ -216,7 +217,7 @@ function choiceButtons(onPick){
 }
 
 /* ---------- tabs ---------- */
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+document.querySelectorAll('nav button[data-tab]').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.tab));
   speechSynthesis && speechSynthesis.cancel();

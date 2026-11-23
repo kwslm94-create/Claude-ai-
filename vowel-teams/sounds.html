@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>الأصوات: ai · oa · ie · a-e</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:"Comic Neue";src:url(fonts/comic-neue-latin-700-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+:root{--ink:#2b2350;--soft:#6d6890;--ai:#ff6b6b;--oa:#2fa8ff;--ie:#9b5cff;--ae:#20c08a;--gold:#ffc23d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;color:var(--ink);font-family:"Baloo Bhaijaan 2",system-ui,sans-serif}
+body{min-height:100vh;background:
+  radial-gradient(circle at 10% 10%,#ffe6b8 0,transparent 30%),
+  radial-gradient(circle at 90% 20%,#d8efff 0,transparent 30%),
+  radial-gradient(circle at 50% 100%,#f1e2ff 0,transparent 40%),#fff8ec}
+.wrap{max-width:900px;margin:0 auto;padding:20px 16px 32px}
+h1{margin:0;text-align:center;font-size:clamp(26px,5vw,38px)}
+.hint{text-align:center;color:var(--soft);font-size:18px;margin:6px 0 20px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.snd{border:0;border-radius:32px;color:#fff;cursor:pointer;font:inherit;padding:22px 10px 16px;
+  box-shadow:0 9px 0 rgba(0,0,0,.18);transition:transform .12s;position:relative;overflow:hidden}
+.snd:active{transform:translateY(5px);box-shadow:0 4px 0 rgba(0,0,0,.18)}
+.snd .big{direction:ltr;font-family:"Comic Neue","Comic Sans MS",cursive;font-weight:700;
+  font-size:clamp(72px,18vw,140px);line-height:1;-webkit-text-stroke:2px currentColor;paint-order:stroke fill}
+.snd .big .mute{opacity:.55}
+.snd .ar{font-size:clamp(16px,3.4vw,22px);margin-top:8px;opacity:.95}
+.snd .spk{position:absolute;top:12px;left:16px;font-size:26px;opacity:.85}
+.snd.play{animation:bounce .6s}
+.snd.play::after{content:"";position:absolute;inset:0;border-radius:inherit;border:6px solid var(--gold);animation:ring .8s forwards}
+@keyframes bounce{30%{transform:scale(1.06)}60%{transform:scale(.97)}100%{transform:none}}
+@keyframes ring{from{opacity:1}to{opacity:0}}
+.ai{background:var(--ai)}.oa{background:var(--oa)}.ie{background:var(--ie)}.ae{background:var(--ae)}
+.bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+.btn{border:0;border-radius:18px;padding:12px 22px;font:inherit;font-weight:800;font-size:19px;cursor:pointer;
+  background:var(--ink);color:#fff;box-shadow:0 5px 0 #15102e;text-decoration:none}
+.btn.light{background:#fff;color:var(--ink);box-shadow:0 5px 0 #efe4cf}
+.speed{display:flex;align-items:center;gap:8px;background:#fff;border-radius:18px;padding:8px 16px;box-shadow:0 5px 0 #efe4cf;font-weight:700}
+@media (max-width:420px){.grid{gap:12px}.snd{border-radius:24px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔊 أصوات الحروف</h1>
+  <div class="hint">اضغط على الحروف لتسمع صوتها، ثم ردّده بصوت عالٍ 🗣️</div>
+
+  <div class="grid">
+    <button class="snd ai" data-s="A."><span class="spk">🔊</span><div class="big">ai</div><div class="ar">إيْ</div></button>
+    <button class="snd oa" data-s="O."><span class="spk">🔊</span><div class="big">oa</div><div class="ar">أوْ</div></button>
+    <button class="snd ie" data-s="I."><span class="spk">🔊</span><div class="big">ie</div><div class="ar">آيْ</div></button>
+    <button class="snd ae" data-s="A."><span class="spk">🔊</span><div class="big">a<span class="mute">-</span>e</div><div class="ar">إيْ — والـ e صامتة ✨</div></button>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="all">▶️ استمع لكل الأصوات</button>
+    <label class="speed">🐢 <input type="range" id="rate" min="0.4" max="1" step="0.1" value="0.6"> 🐇</label>
+    <a class="btn light" href="./">🎮 الأنشطة والألعاب</a>
+  </div>
+</div>
+
+<script>
+let voice=null;
+function pickVoice(){
+  const vs=speechSynthesis.getVoices();
+  voice=vs.find(v=>/en-US/i.test(v.lang)&&/Google|Samantha|Aria|Jenny/i.test(v.name))
+     ||vs.find(v=>/en-US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
+}
+if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}
+const rate=()=>+document.getElementById('rate').value;
+function speak(text,onend){
+  if(!('speechSynthesis' in window)){alert('المتصفح لا يدعم الصوت');return;}
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='en-US';u.rate=rate();if(voice)u.voice=voice;
+  if(onend)u.onend=onend;
+  speechSynthesis.speak(u);
+}
+function flash(b){b.classList.remove('play');void b.offsetWidth;b.classList.add('play');}
+const cards=[...document.querySelectorAll('.snd')];
+cards.forEach(b=>b.onclick=()=>{speechSynthesis.cancel();flash(b);speak(b.dataset.s);});
+document.getElementById('all').onclick=()=>{
+  speechSynthesis.cancel();
+  let i=0;
+  const next=()=>{ if(i>=cards.length)return; const b=cards[i++]; flash(b); speak(b.dataset.s,()=>setTimeout(next,700)); };
+  next();
+};
+</script>
+</body>
+</html>
