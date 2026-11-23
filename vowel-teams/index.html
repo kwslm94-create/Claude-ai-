@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>نطق الحروف: ai · oa · ie · a-e</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff8ec; --ink:#2b2350; --soft:#6d6890; --card:#ffffff;
+  --ai:#ff6b6b; --oa:#2fa8ff; --ie:#9b5cff; --ae:#20c08a;
+  --gold:#ffc23d; --line:#efe4cf;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Baloo Bhaijaan 2",system-ui,sans-serif}
+body{min-height:100vh;background:
+  radial-gradient(circle at 10% 10%,#ffe6b8 0,transparent 30%),
+  radial-gradient(circle at 90% 20%,#d8efff 0,transparent 30%),
+  radial-gradient(circle at 50% 100%,#f1e2ff 0,transparent 40%),var(--bg)}
+.en{direction:ltr;unicode-bidi:isolate;font-family:"Baloo Bhaijaan 2",sans-serif}
+header{max-width:960px;margin:0 auto;padding:18px 16px 6px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{margin:0;font-size:clamp(22px,4vw,32px);line-height:1.2}
+h1 small{display:block;font-size:.55em;color:var(--soft);font-weight:500}
+.stars{background:#fff;border:3px solid var(--gold);border-radius:999px;padding:6px 16px;font-weight:800;font-size:20px;white-space:nowrap;box-shadow:0 4px 0 #f0b020}
+nav{max-width:960px;margin:8px auto 0;padding:0 16px;display:flex;gap:8px;flex-wrap:wrap}
+nav button{flex:1 1 140px;border:0;border-radius:16px;padding:12px 10px;font:inherit;font-weight:800;font-size:17px;background:#fff;color:var(--ink);cursor:pointer;box-shadow:0 4px 0 var(--line);transition:.15s}
+nav button.on{background:var(--ink);color:#fff;box-shadow:0 4px 0 #15102e}
+main{max-width:960px;margin:14px auto 40px;padding:0 16px}
+.panel{display:none}.panel.on{display:block;animation:pop .3s}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.hint{background:#fff;border-radius:18px;padding:12px 16px;margin-bottom:14px;color:var(--soft);font-size:17px;border:2px dashed var(--line)}
+
+/* learn */
+.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.team{border:0;border-radius:22px;padding:16px;color:#fff;cursor:pointer;text-align:center;font:inherit;box-shadow:0 6px 0 rgba(0,0,0,.15);transition:transform .15s}
+.team:active{transform:translateY(3px)}
+.team.sel{outline:5px solid var(--ink);outline-offset:3px}
+.team .big{font-size:54px;font-weight:800;line-height:1}
+.team .say{font-size:17px;opacity:.95;margin-top:4px}
+.t-ai{background:var(--ai)}.t-oa{background:var(--oa)}.t-ie{background:var(--ie)}.t-ae{background:var(--ae)}
+.rule{background:#fff;border-radius:20px;padding:14px 18px;margin-bottom:14px;font-size:18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rule .chip{color:#fff;border-radius:12px;padding:2px 12px;font-weight:800;font-size:22px}
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.word{background:#fff;border-radius:20px;padding:14px 8px;text-align:center;cursor:pointer;border:3px solid transparent;box-shadow:0 5px 0 var(--line);transition:.15s;user-select:none}
+.word:hover{transform:translateY(-2px)}
+.word.playing{border-color:var(--gold)}
+.word .emo{font-size:52px;line-height:1.1}
+.word .w{font-size:32px;font-weight:800;letter-spacing:1px}
+.word .ar{font-size:15px;color:var(--soft)}
+.hl{border-radius:8px;padding:0 3px;color:#fff}
+.hl-ai{background:var(--ai)}.hl-oa{background:var(--oa)}.hl-ie{background:var(--ie)}
+.hl-ae{color:var(--ae);text-decoration:underline 4px;text-underline-offset:6px}
+.silent{color:#bdb8d4;font-style:italic}
+.btn{border:0;border-radius:16px;padding:12px 22px;font:inherit;font-weight:800;font-size:19px;cursor:pointer;background:var(--ink);color:#fff;box-shadow:0 5px 0 #15102e}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 #15102e}
+.btn.light{background:#fff;color:var(--ink);box-shadow:0 5px 0 var(--line)}
+.btn.gold{background:var(--gold);color:var(--ink);box-shadow:0 5px 0 #d79a12}
+
+/* game card */
+.stage{background:#fff;border-radius:28px;padding:22px 16px;text-align:center;box-shadow:0 8px 0 var(--line)}
+.progress{height:12px;background:#f1ead9;border-radius:999px;overflow:hidden;margin-bottom:16px}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ai),var(--gold),var(--ae));transition:width .4s}
+.qemo{font-size:96px;line-height:1.1;margin:6px 0}
+.qword{font-size:clamp(40px,9vw,64px);font-weight:800;letter-spacing:2px;margin:4px 0 10px}
+.blank{display:inline-block;min-width:1.1em;border-bottom:5px solid var(--ink);margin:0 4px;color:transparent}
+.blank.fill{color:inherit;border-color:transparent}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px}
+.choice{border:0;border-radius:20px;padding:16px 8px;font:inherit;font-weight:800;font-size:34px;color:#fff;cursor:pointer;box-shadow:0 6px 0 rgba(0,0,0,.18)}
+.choice:disabled{opacity:.45;cursor:default}
+.choice.right{opacity:1;outline:5px solid var(--gold);outline-offset:3px}
+.feedback{min-height:38px;font-size:22px;font-weight:800;margin-top:12px}
+.ok{color:#14a06f}.no{color:#e0484a}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.mic{width:120px;height:120px;border-radius:50%;border:0;font-size:56px;cursor:pointer;background:var(--ai);color:#fff;box-shadow:0 8px 0 #c94848;margin:10px auto;display:block}
+.mic.rec{animation:pulse 1s infinite;background:#e0484a}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(224,72,74,.6)}100%{box-shadow:0 0 0 26px rgba(224,72,74,0)}}
+.heard{color:var(--soft);font-size:18px;min-height:28px}
+.done .qemo{font-size:80px}
+.confetti{position:fixed;top:-20px;font-size:28px;pointer-events:none;animation:fall 2.4s linear forwards;z-index:9}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg);opacity:.7}}
+footer{text-align:center;color:var(--soft);font-size:14px;padding:0 16px 24px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>هيّا ننطق! <span class="en">ai · oa · ie · a‑e</span>
+    <small>نشاط تفاعلي لنطق الحروف المتحركة الطويلة</small></h1>
+  <div class="stars">⭐ <span id="score">0</span></div>
+</header>
+
+<nav>
+  <button data-tab="learn" class="on">📖 تعلّم</button>
+  <button data-tab="speak">🎤 انطق</button>
+  <button data-tab="listen">👂 استمع واختر</button>
+  <button data-tab="fill">🧩 أكمل الكلمة</button>
+</nav>
+
+<main>
+  <!-- LEARN -->
+  <section class="panel on" id="learn">
+    <div class="hint">👆 اختر الحروف، ثم اضغط على أي صورة لتسمع الكلمة. الحروف الملوّنة هي التي تصنع الصوت.</div>
+    <div class="teams" id="teams"></div>
+    <div class="rule" id="rule"></div>
+    <div class="words" id="words"></div>
+  </section>
+
+  <!-- SPEAK -->
+  <section class="panel" id="speak">
+    <div class="hint">🎤 استمع للكلمة، ثم اضغط على الميكروفون وانطقها بصوت واضح. (يعمل الميكروفون بأفضل شكل على متصفح Chrome)</div>
+    <div class="stage" id="speakStage"></div>
+  </section>
+
+  <!-- LISTEN -->
+  <section class="panel" id="listen">
+    <div class="hint">👂 اضغط 🔊 واستمع للكلمة، ثم اختر الحروف التي تسمعها فيها.</div>
+    <div class="stage" id="listenStage"></div>
+  </section>
+
+  <!-- FILL -->
+  <section class="panel" id="fill">
+    <div class="hint">🧩 انظر إلى الصورة، واختر الحروف الناقصة لتكمل الكلمة.</div>
+    <div class="stage" id="fillStage"></div>
+  </section>
+</main>
+
+<footer>اضغط على الصوت 🔊 في أي وقت لتسمع من جديد</footer>
+
+<script>
+const TEAMS = {
+  ai:{label:'ai', color:'var(--ai)', cls:'t-ai', sound:'ay', soundAr:'تُنطق: إيْ (مثل اسم الحرف A)',
+      rule:'حرفا <b class="en">a</b> و <b class="en">i</b> معًا يصنعان صوت <b class="en">/eɪ/</b>، ويأتيان غالبًا في وسط الكلمة.',
+      words:[['rain','🌧️','مطر'],['train','🚆','قطار'],['snail','🐌','حلزون'],['mail','📬','بريد'],['paint','🎨','طلاء'],['tail','🐒','ذيل']]},
+  oa:{label:'oa', color:'var(--oa)', cls:'t-oa', sound:'oh', soundAr:'تُنطق: أوْ (مثل اسم الحرف O)',
+      rule:'حرفا <b class="en">o</b> و <b class="en">a</b> معًا يصنعان صوت <b class="en">/oʊ/</b>، ونسمع فيه الـ <b class="en">o</b> فقط.',
+      words:[['boat','⛵','قارب'],['goat','🐐','ماعز'],['coat','🧥','معطف'],['road','🛣️','طريق'],['soap','🧼','صابون'],['toast','🍞','خبز محمص']]},
+  ie:{label:'ie', color:'var(--ie)', cls:'t-ie', sound:'eye', soundAr:'تُنطق: آيْ (مثل اسم الحرف I)',
+      rule:'حرفا <b class="en">i</b> و <b class="en">e</b> معًا يصنعان صوت <b class="en">/aɪ/</b>، ويأتيان غالبًا في آخر الكلمة.',
+      words:[['pie','🥧','فطيرة'],['tie','👔','ربطة عنق'],['fries','🍟','بطاطس مقلية'],['cried','😢','بكى'],['flies','🪰','ذباب'],['lie','🤥','كذبة']]},
+  ae:{label:'a-e', color:'var(--ae)', cls:'t-ae', sound:'ay', soundAr:'تُنطق: إيْ — والـ e صامتة سحرية ✨',
+      rule:'حرف <b class="en">e</b> السحري في آخر الكلمة لا يُنطق ✨، لكنه يجعل الـ <b class="en">a</b> تقول اسمها <b class="en">/eɪ/</b>.',
+      words:[['cake','🎂','كعكة'],['snake','🐍','ثعبان'],['plane','✈️','طائرة'],['game','🎮','لعبة'],['grape','🍇','عنب'],['whale','🐋','حوت']]}
+};
+const KEYS = Object.keys(TEAMS);
+const ALL = KEYS.flatMap(k => TEAMS[k].words.map(w => ({word:w[0], emo:w[1], ar:w[2], team:k})));
+
+/* ---------- speech ---------- */
+let voice = null;
+function pickVoice(){
+  const vs = speechSynthesis.getVoices();
+  voice = vs.find(v=>/en-US/i.test(v.lang) && /Google|Samantha|Aria|Jenny/i.test(v.name))
+       || vs.find(v=>/en-US/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)) || null;
+}
+if('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function say(text, rate=0.8){
+  if(!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang='en-US'; u.rate=rate; if(voice) u.voice=voice;
+  speechSynthesis.speak(u);
+}
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+let score = +(localStorage.getItem('vt_score')||0);
+try{ $('#score').textContent = score; }catch(e){}
+function addStar(n=1){
+  score += n; $('#score').textContent = score;
+  try{ localStorage.setItem('vt_score', score); }catch(e){}
+}
+function confetti(){
+  const set=['⭐','🎉','✨','🌟','🎈'];
+  for(let i=0;i<22;i++){
+    const s=document.createElement('div'); s.className='confetti';
+    s.textContent=set[i%set.length]; s.style.left=Math.random()*100+'vw';
+    s.style.animationDelay=(Math.random()*.6)+'s';
+    document.body.appendChild(s); setTimeout(()=>s.remove(),3200);
+  }
+}
+function splitAE(w){ const m = w.match(/^(.*?)a([^aeiou]+)e(s?)$/); return m; }
+function highlight(word, team){
+  if(team==='ae'){
+    const m = splitAE(word);
+    if(m) return `${m[1]}<span class="hl-ae">a</span>${m[2]}<span class="hl-ae">e</span>${m[3]}`;
+  }
+  const p = TEAMS[team].label, i = word.indexOf(p);
+  if(i<0) return word;
+  return word.slice(0,i)+`<span class="hl hl-${team}">${p}</span>`+word.slice(i+p.length);
+}
+function blanked(word, team){
+  if(team==='ae'){
+    const m = splitAE(word);
+    return `${m[1]}<span class="blank" data-f="a">a</span>${m[2]}<span class="blank" data-f="e">e</span>${m[3]}`;
+  }
+  const p = TEAMS[team].label, i = word.indexOf(p);
+  return word.slice(0,i)+`<span class="blank" data-f="${p}">${p}</span>`+word.slice(i+p.length);
+}
+function choiceButtons(onPick){
+  return KEYS.map(k=>`<button class="choice ${TEAMS[k].cls} en" data-k="${k}">${TEAMS[k].label}</button>`).join('');
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.tab));
+  speechSynthesis && speechSynthesis.cancel();
+  if(b.dataset.tab==='speak' && !speakGame.started) speakGame.start();
+  if(b.dataset.tab==='listen' && !listenGame.started) listenGame.start();
+  if(b.dataset.tab==='fill' && !fillGame.started) fillGame.start();
+});
+
+/* ---------- LEARN ---------- */
+let current='ai';
+function renderTeams(){
+  $('#teams').innerHTML = KEYS.map(k=>`
+    <button class="team ${TEAMS[k].cls} ${k===current?'sel':''}" data-k="${k}">
+      <div class="big en">${TEAMS[k].label}</div>
+      <div class="say">${TEAMS[k].soundAr}</div>
+    </button>`).join('');
+  document.querySelectorAll('.team').forEach(b=>b.onclick=()=>{
+    current=b.dataset.k; renderTeams(); renderLearn(); say(TEAMS[current].sound,0.7);
+  });
+}
+function renderLearn(){
+  const t=TEAMS[current];
+  $('#rule').innerHTML = `<span class="chip en" style="background:${t.color}">${t.label}</span>
+     <span>${t.rule}</span>
+     <button class="btn light" id="hearSound">🔊 اسمع الصوت</button>`;
+  $('#hearSound').onclick=()=>say(t.sound,0.7);
+  $('#words').innerHTML = t.words.map(([w,e,a])=>`
+    <div class="word" data-w="${w}">
+      <div class="emo">${e}</div>
+      <div class="w en">${highlight(w,current)}</div>
+      <div class="ar">${a} 🔊</div>
+    </div>`).join('');
+  document.querySelectorAll('.word').forEach(c=>c.onclick=()=>{
+    document.querySelectorAll('.word').forEach(x=>x.classList.remove('playing'));
+    c.classList.add('playing'); say(c.dataset.w);
+  });
+}
+renderTeams(); renderLearn();
+
+/* ---------- generic round engine ---------- */
+function makeGame(stageSel, rounds, render){
+  return {
+    started:false, i:0, right:0, list:[],
+    start(){ this.started=true; this.i=0; this.right=0; this.list=shuffle(ALL).slice(0,rounds); this.next(); },
+    next(){
+      const st=$(stageSel);
+      if(this.i>=this.list.length){ return this.finish(); }
+      const q=this.list[this.i];
+      render.call(this, st, q, `<div class="progress"><i style="width:${(this.i/this.list.length)*100}%"></i></div>`);
+    },
+    finish(){
+      const st=$(stageSel), r=this.right, n=this.list.length;
+      const stars = r>=n-1?'⭐⭐⭐': r>=n/2?'⭐⭐':'⭐';
+      st.innerHTML = `<div class="done"><div class="progress"><i style="width:100%"></i></div>
+        <div class="qemo">🏆</div><h2>أحسنت! أجبت ${r} من ${n}</h2>
+        <div style="font-size:48px">${stars}</div>
+        <div class="row"><button class="btn gold" id="again">🔁 العب مرة أخرى</button></div></div>`;
+      st.querySelector('#again').onclick=()=>this.start();
+      if(r>=n/2) confetti();
+    },
+    advance(ok){ if(ok){ this.right++; addStar(); } this.i++; setTimeout(()=>this.next(), ok?1300:1900); }
+  };
+}
+
+/* ---------- LISTEN ---------- */
+const listenGame = makeGame('#listenStage', 8, function(st,q,bar){
+  st.innerHTML = `${bar}
+    <div class="qemo">❓</div>
+    <div class="row"><button class="btn gold" id="play">🔊 استمع</button></div>
+    <div class="choices">${choiceButtons()}</div>
+    <div class="feedback" id="fb"></div>`;
+  const play=()=>say(q.word); st.querySelector('#play').onclick=play; setTimeout(play,350);
+  st.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{
+    const ok = b.dataset.k===q.team;
+    st.querySelectorAll('.choice').forEach(x=>{ x.disabled=true; if(x.dataset.k===q.team) x.classList.add('right'); });
+    st.querySelector('.qemo').innerHTML = `${q.emo}<div class="qword en">${highlight(q.word,q.team)}</div>`;
+    st.querySelector('#fb').innerHTML = ok ? '<span class="ok">ممتاز! 🎉</span>' : `<span class="no">الإجابة الصحيحة: <span class="en">${TEAMS[q.team].label}</span></span>`;
+    say(q.word); this.advance(ok);
+  });
+});
+
+/* ---------- FILL ---------- */
+const fillGame = makeGame('#fillStage', 8, function(st,q,bar){
+  st.innerHTML = `${bar}
+    <div class="qemo">${q.emo}</div>
+    <div class="qword en">${blanked(q.word,q.team)}</div>
+    <div style="color:var(--soft)">${q.ar} — <button class="btn light" id="play" style="padding:6px 14px;font-size:16px">🔊</button></div>
+    <div class="choices">${choiceButtons()}</div>
+    <div class="feedback" id="fb"></div>`;
+  st.querySelector('#play').onclick=()=>say(q.word);
+  st.querySelectorAll('.choice').forEach(b=>b.onclick=()=>{
+    const ok = b.dataset.k===q.team;
+    if(!ok){
+      b.disabled=true;
+      st.querySelector('#fb').innerHTML='<span class="no">حاول مرة أخرى 💪</span>';
+      this._miss=true; return;
+    }
+    st.querySelectorAll('.choice').forEach(x=>x.disabled=true); b.classList.add('right');
+    st.querySelectorAll('.blank').forEach(x=>{ x.classList.add('fill'); x.style.color=TEAMS[q.team].color; });
+    st.querySelector('#fb').innerHTML='<span class="ok">رائع! ✨</span>';
+    say(q.word);
+    const first=!this._miss; this._miss=false; this.advance(first);
+  });
+});
+
+/* ---------- SPEAK ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const speakGame = makeGame('#speakStage', 8, function(st,q,bar){
+  st.innerHTML = `${bar}
+    <div class="qemo">${q.emo}</div>
+    <div class="qword en">${highlight(q.word,q.team)}</div>
+    <div class="row"><button class="btn light" id="play">🔊 استمع أولًا</button></div>
+    ${SR ? `<button class="mic" id="mic" title="اضغط وتكلّم">🎤</button>
+            <div class="heard" id="heard">اضغط على الميكروفون وقل الكلمة</div>`
+         : `<div class="heard" style="margin-top:14px">هذا المتصفح لا يدعم الميكروفون — انطق الكلمة بصوت عالٍ ثم قيّم نفسك:</div>
+            <div class="row"><button class="btn gold" id="selfOk">✅ نطقتها صحيحة</button><button class="btn light" id="selfNo">🔁 أحتاج تدريبًا</button></div>`}
+    <div class="feedback" id="fb"></div>
+    <div class="row"><button class="btn light" id="skip">التالي ⬅️</button></div>`;
+  const play=()=>say(q.word); st.querySelector('#play').onclick=play; setTimeout(play,350);
+  let tries=0, done=false;
+  const finish=(ok)=>{ if(done) return; done=true; this.advance(ok); };
+  st.querySelector('#skip').onclick=()=>finish(false);
+  if(!SR){
+    st.querySelector('#selfOk').onclick=()=>{ st.querySelector('#fb').innerHTML='<span class="ok">أحسنت! 🌟</span>'; finish(true); };
+    st.querySelector('#selfNo').onclick=()=>{ play(); };
+    return;
+  }
+  const mic=st.querySelector('#mic'), heard=st.querySelector('#heard'), fb=st.querySelector('#fb');
+  mic.onclick=()=>{
+    if(done) return;
+    speechSynthesis.cancel();
+    const rec=new SR(); rec.lang='en-US'; rec.maxAlternatives=6; rec.interimResults=false;
+    mic.classList.add('rec'); heard.textContent='أنا أستمع... 👂';
+    rec.onresult=e=>{
+      const alts=[...e.results[0]].map(a=>a.transcript.toLowerCase().replace(/[^a-z ]/g,'').trim());
+      const target=q.word;
+      const ok=alts.some(a=>a.split(' ').some(t=>t===target || t===target.replace(/s$/,'') || t+'s'===target));
+      heard.innerHTML=`سمعتُ: <b class="en">${alts[0]||'...'}</b>`;
+      if(ok){ fb.innerHTML='<span class="ok">نطق رائع! 🎉</span>'; confetti(); finish(tries===0); }
+      else{ tries++; fb.innerHTML='<span class="no">قريب! استمع وحاول مرة أخرى 💪</span>'; setTimeout(play,500); }
+    };
+    rec.onerror=ev=>{ heard.textContent = ev.error==='not-allowed' ? 'اسمح للمتصفح باستخدام الميكروفون 🎤' : 'لم أسمع جيدًا، حاول مرة أخرى'; };
+    rec.onend=()=>mic.classList.remove('rec');
+    try{ rec.start(); }catch(err){ mic.classList.remove('rec'); }
+  };
+});
+</script>
+</body>
+</html>
