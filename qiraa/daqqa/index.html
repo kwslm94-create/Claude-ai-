@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حاسبة دقة القراءة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@600;700&family=Tajawal:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F5F4FA;--card:#fff;--ink:#22313F;--muted:#66717E;--brand:#5B4FB0;--brand-d:#433A88;--line:#E1DEF0;
+        --ok:#2E9E5B;--ok-bg:#E3F6EA;--bad:#D1495B;--bad-bg:#FBE7EA;--sc:#C99A2E;--sc-bg:#FFF3CF}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Tajawal",system-ui,sans-serif}
+  button,select,input{font-family:inherit}
+  button{cursor:pointer;border:none;touch-action:manipulation}
+  .app{max-width:960px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) 12px 30px}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .badge{width:44px;height:44px;border-radius:12px;background:var(--brand);display:grid;place-items:center}
+  .badge img{width:65%}
+  h1{font-size:24px;margin:0;font-weight:800} header p{margin:0;color:var(--muted);font-size:14px}
+  .card{background:var(--card);border-radius:18px;box-shadow:0 4px 0 var(--line);padding:14px 16px;margin-bottom:12px}
+  .card h2{font-size:18px;margin:0 0 8px}
+  .note{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 8px}
+  .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+  .row label{font-size:15px;display:flex;align-items:center;gap:6px}
+  select,input[type=text],input[type=number]{font-size:15px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  input[type=number]{width:70px}
+  .btn{background:var(--brand);color:#fff;font-weight:800;font-size:16px;padding:9px 18px;border-radius:12px;box-shadow:0 3px 0 var(--brand-d)}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--brand-d)}
+  .ghost{background:#EEECF8;color:var(--ink);font-weight:700;font-size:15px;padding:8px 14px;border-radius:12px}
+  .mini{font-size:13px;padding:5px 9px;border-radius:8px;background:#EEECF8;color:var(--ink)}
+  .mini.danger{background:var(--bad-bg);color:var(--bad)}
+  .timer{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;min-width:90px;text-align:center;direction:ltr}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:8px}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:middle;margin-left:4px}
+  .text{font-family:"Noto Naskh Arabic",serif;font-weight:700;font-size:clamp(22px,4.2vw,32px);line-height:2.1;background:#FBFAFE;border:2px solid var(--line);border-radius:16px;padding:8px 12px}
+  .w{display:inline;font:inherit;line-height:inherit;background:transparent;color:var(--ink);padding:0 .1em;margin:0 .05em;border-radius:8px;position:relative}
+  .w.err{background:var(--bad-bg);color:var(--bad);box-shadow:inset 0 -3px 0 var(--bad)}
+  .w.sc{background:var(--sc-bg);color:#8a6a1c;box-shadow:inset 0 -3px 0 var(--sc)}
+  .w sup{font-family:"Tajawal",sans-serif;font-size:.4em;color:var(--muted);font-weight:700}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+  .kpi{background:#F1EFFA;border-radius:14px;padding:10px 12px}
+  .kpi b{display:block;font-size:24px} .kpi span{color:var(--muted);font-size:13px}
+  .lvl{font-weight:800} .lvl.ind{color:var(--ok)} .lvl.ins{color:var(--sc)} .lvl.fru{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  th{color:var(--muted)}
+  .ar{font-family:"Noto Naskh Arabic",serif}
+  .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:8px}
+  .confirm{background:var(--bad-bg);border-radius:12px;padding:10px;margin-top:8px;font-size:15px}
+  .hidden{display:none!important}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+  .toast.show{opacity:1}
+  audio{width:100%;max-width:420px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="badge"><img src="img/1f4d6.svg" alt=""></div>
+    <div><h1>حاسبة دقة القراءة</h1><p>أداة المعلمة لقياس طلاقة القراءة الجهرية (الهدف العام الأول)</p></div>
+  </header>
+
+  <div class="card">
+    <h2>1. بيانات القياس</h2>
+    <div class="row">
+      <label>الطالب: <input type="text" id="name" style="width:130px"></label>
+      <label>نوع القياس:
+        <select id="kind"><option>قبلي</option><option>متكرر</option><option>ختامي</option></select></label>
+      <label>النص: <select id="passage"></select></label>
+    </div>
+    <p class="note" style="margin-top:8px">يُقاس مهند على <b>قطعة القياس</b> نفسها في كل مرة، ولا يتدرب عليها، حتى يعكس التحسن مهارته لا حفظه. ويمكن اختيار قصة من نشاط «اقرأ وافهم» لرؤية أثر القراءة المتكررة.</p>
+  </div>
+
+  <div class="card">
+    <h2>2. الاستماع والزمن</h2>
+    <p class="note">ارفعي تسجيل قراءة مهند من المذكرات الصوتية لتستمعي إليه هنا (لا يُحفظ التسجيل في الصفحة)، أو استمعي لقراءته مباشرة. شغّلي المؤقت مع أول كلمة وأوقفيه مع آخر كلمة، أو اكتبي الزمن بنفسك.</p>
+    <div class="row">
+      <label class="ghost" style="cursor:pointer">رفع التسجيل<input type="file" id="audioFile" accept="audio/*" style="display:none"></label>
+      <button class="btn" id="tBtn">ابدأ المؤقت</button>
+      <div class="timer" id="tShow">0:00</div>
+      <button class="mini" id="tReset">تصفير</button>
+      <label>أو الزمن: <input type="number" id="min" min="0" value="0"> د <input type="number" id="sec" min="0" max="59" value="0"> ث</label>
+    </div>
+    <audio id="player" controls class="hidden"></audio>
+  </div>
+
+  <div class="card">
+    <h2>3. تحديد الأخطاء</h2>
+    <div class="legend">
+      <span><i style="background:var(--bad-bg);box-shadow:inset 0 -3px 0 var(--bad)"></i>ضغطة واحدة: خطأ (إبدال، حذف، توقف أكثر من 3 ثوانٍ، أو قرأتها له المعلمة)</span>
+      <span><i style="background:var(--sc-bg);box-shadow:inset 0 -3px 0 var(--sc)"></i>ضغطتان: صحّح نفسه (تُحسب صحيحة)</span>
+      <span>ثلاث ضغطات: إلغاء</span>
+    </div>
+    <div class="text" id="text"></div>
+    <div class="row" style="margin-top:8px"><label>كلمات أضافها من عنده: <input type="number" id="ins" min="0" value="0"></label><button class="mini" id="clearMarks">مسح التحديد</button></div>
+  </div>
+
+  <div class="card">
+    <h2>4. النتيجة</h2>
+    <div class="kpis" id="res"></div>
+    <p class="note" style="margin-top:8px">مستوى النص حسب الدقة: <b class="lvl ind">95% فأكثر مستقل</b>، <b class="lvl ins">90–94% تعليمي</b> (يقرؤه بمساعدة)، <b class="lvl fru">أقل من 90% صعب عليه</b>.</p>
+    <div class="row"><label style="flex:1 1 260px">ملاحظات: <input type="text" id="notes" style="flex:1" placeholder="مثال: خلط بين ج وح، قراءة متقطعة"></label><button class="btn" id="save">حفظ القياس</button></div>
+  </div>
+
+  <div class="card">
+    <h2>5. منحنى التقدم والسجل</h2>
+    <div class="charts" id="charts"></div>
+    <div id="frequent" class="note"></div>
+    <div style="overflow-x:auto"><table id="log"></table></div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost" id="copy">نسخ السجل (للصقه في Google Sheets)</button>
+      <button class="mini danger" id="clear">مسح السجل</button>
+    </div>
+    <div class="confirm hidden" id="confirm">هل تريدين مسح كل القياسات؟ لا يمكن التراجع.
+      <div class="row" style="margin-top:6px"><button class="mini danger" id="yes">نعم، امسحي</button><button class="mini" id="no">إلغاء</button></div>
+    </div>
+    <p class="note" style="margin-top:12px;font-size:12px">تُحفظ القياسات على هذا الجهاز وفي هذا المتصفح فقط. الأيقونة من Twemoji بترخيص CC-BY 4.0.</p>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const MEASURE={id:'measure',title:'قطعة القياس: أَحْمَدُ فِي الْمَزْرَعَةِ',
+    text:'خَرَجَ أَحْمَدُ مَعَ جَدِّهِ إِلَى الْمَزْرَعَةْ. رَأَى أَحْمَدُ النَّخْلَةَ الْكَبِيرَةْ. جَمَعَ الْجَدُّ التَّمْرَ مِنَ النَّخْلَةْ. وَضَعَ أَحْمَدُ التَّمْرَ فِي السَّلَّةْ. شَرِبَا الْمَاءَ مِنَ الْفَلَجْ. جَلَسَا تَحْتَ الشَّجَرَةْ. أَكَلَ أَحْمَدُ التَّمْرَ الْحُلْوْ. قَالَ أَحْمَدُ: شُكْرًا يَا جَدِّي! ثُمَّ عَادَا إِلَى الْبَيْتْ.'};
+  const JAMAL={id:'jamal',title:'يَوْمُ الْجَمَلِ (من اقرأ وافهم)',
+    text:'سَارَ الْجَمَلُ قُرْبَ الْبَحْرْ. كَانَ مَاءُ الْبَحْرِ أَزْرَقْ. كَانَ الْقَمَرُ فَوْقَ الْجَبَلْ. رَأَى الْجَمَلُ سَمَكَةً تَقْفِزْ. فَرِحَ الْجَمَلُ بِالسَّمَكَةْ. جَاعَ الْجَمَلُ فِي الطَّرِيقْ. أَكَلَ الْجَمَلُ عِنَبًا حُلْوًا. قَالَ الْجَمَلُ: مَا أَجْمَلَ يَوْمِي! ثُمَّ عَادَ الْجَمَلُ إِلَى الْبَيْتْ. نَامَ الْجَمَلُ فِي الْبَيْتْ.'};
+  const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  const clean=w=>w.replace(/[.،,:!؟?«»"]/g,'');
+  function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800)}
+  function fmtDate(ts){return new Date(ts).toLocaleDateString('ar-OM',{day:'numeric',month:'short',year:'numeric'})}
+
+  // القصص: قطعة القياس + قصص نشاط «اقرأ وافهم» (المحفوظة على الجهاز نفسه)
+  const ifSettings=store.get('ifham-settings',{name:'مهند'});
+  const passages=[MEASURE,JAMAL,...store.get('ifham-stories',[]).map(s=>({id:s.id,title:s.title+' (من اقرأ وافهم)',text:s.text}))];
+  let st=store.get('daqqa-settings',{name:ifSettings.name||'مهند',passage:'measure'});
+  let log=store.get('daqqa-log',[]);
+  let marks={}; // index -> 1 خطأ, 2 تصحيح ذاتي
+
+  const P=()=>passages.find(p=>p.id===st.passage)||MEASURE;
+  const words=t=>t.split(/\s+/).filter(x=>clean(x).length);
+
+  function fillPassages(){const s=$('passage');s.innerHTML='';passages.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.title+' – '+words(p.text).length+' كلمة';if(p.id===st.passage)o.selected=true;s.appendChild(o)})}
+  function renderText(){
+    const box=$('text');box.innerHTML='';
+    words(P().text).forEach((w,i)=>{const b=document.createElement('button');b.className='w'+(marks[i]===1?' err':marks[i]===2?' sc':'');
+      b.innerHTML=esc(w)+(marks[i]?'<sup>'+(marks[i]===1?'خ':'ص')+'</sup>':'');
+      b.onclick=()=>{marks[i]=((marks[i]||0)+1)%3;if(!marks[i])delete marks[i];renderText();calc()};box.appendChild(b);box.appendChild(document.createTextNode(' '))});
+  }
+  // المؤقت
+  let t0=0,acc=0,iv=null;
+  const secs=()=>acc+(iv?(Date.now()-t0)/1000:0);
+  function showT(){const s=Math.round(secs());$('tShow').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+  $('tBtn').onclick=()=>{if(iv){acc=secs();clearInterval(iv);iv=null;$('tBtn').textContent='استئناف';const s=Math.round(acc);$('min').value=Math.floor(s/60);$('sec').value=s%60;calc()}
+    else{t0=Date.now();iv=setInterval(showT,250);$('tBtn').textContent='إيقاف'}};
+  $('tReset').onclick=()=>{clearInterval(iv);iv=null;acc=0;showT();$('tBtn').textContent='ابدأ المؤقت';$('min').value=0;$('sec').value=0;calc()};
+  const timeSec=()=>(+$('min').value||0)*60+(+$('sec').value||0);
+
+  function result(){
+    const W=words(P().text),total=W.length,ins=Math.max(0,+$('ins').value||0);
+    const errIdx=Object.keys(marks).filter(k=>marks[k]===1).map(Number),scIdx=Object.keys(marks).filter(k=>marks[k]===2).map(Number);
+    const errors=errIdx.length+ins,correct=Math.max(0,total-errIdx.length),acc=Math.max(0,Math.round(((total-errors)/total)*1000)/10);
+    const t=timeSec(),wcpm=t>0?Math.round(correct*60/t):null;
+    return {total,errors,ins,correct,acc,t,wcpm,errWords:errIdx.sort((a,b)=>a-b).map(i=>clean(W[i])),sc:scIdx.length};
+  }
+  const level=a=>a>=95?['مستقل','ind']:a>=90?['تعليمي','ins']:['صعب عليه','fru'];
+  function calc(){
+    const r=result(),[lv,cls]=level(r.acc);
+    $('res').innerHTML=
+      '<div class="kpi"><b>'+r.acc+'%</b><span>نسبة الدقة</span></div>'+
+      '<div class="kpi"><b>'+r.correct+' / '+r.total+'</b><span>الكلمات الصحيحة</span></div>'+
+      '<div class="kpi"><b>'+(r.wcpm==null?'—':r.wcpm)+'</b><span>كلمة صحيحة في الدقيقة'+(r.wcpm==null?' (أدخلي الزمن)':'')+'</span></div>'+
+      '<div class="kpi"><b>'+r.errors+'</b><span>الأخطاء (منها '+r.ins+' إضافة) · صحّح نفسه '+r.sc+'</span></div>'+
+      '<div class="kpi"><b class="lvl '+cls+'">'+lv+'</b><span>مستوى النص له</span></div>';
+  }
+  function chart(rows,key,max,title,goal){
+    const pts=rows.filter(e=>e[key]!=null);if(!pts.length)return '';
+    const W=440,H=190,pl=34,pr=12,pt=34,pb=28,iw=W-pl-pr,ih=H-pt-pb,mx=max?max:(Math.max(...pts.map(e=>e[key]))*1.15||1),y=v=>pt+ih-(v/mx)*ih,x=i=>pl+(pts.length===1?iw/2:iw*i/(pts.length-1));
+    let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="direction:ltr;background:#FBFAFE;border-radius:12px" role="img" aria-label="'+title+'">';
+    s+='<text x="'+(W-pr)+'" y="16" font-size="13" text-anchor="end" fill="#22313F" font-weight="700">'+title+'</text>';
+    [0,Math.round(mx/2),Math.round(mx)].forEach(v=>{s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="#E1DEF0"/><text x="'+(pl-5)+'" y="'+(y(v)+4)+'" font-size="10" text-anchor="end" fill="#66717E">'+v+'</text>'});
+    if(goal){s+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(goal)+'" y2="'+y(goal)+'" stroke="#2E9E5B" stroke-dasharray="5 4"/><text x="'+(W-pr)+'" y="'+(y(goal)+13)+'" font-size="10" text-anchor="end" fill="#2E9E5B">'+goal+'%</text>'}
+    s+='<polyline fill="none" stroke="#5B4FB0" stroke-width="2.5" points="'+pts.map((e,i)=>x(i)+','+y(e[key])).join(' ')+'"/>';
+    pts.forEach((e,i)=>{s+='<circle cx="'+x(i)+'" cy="'+y(e[key])+'" r="5" fill="'+(e.kind==='قبلي'?'#D9822B':e.kind==='ختامي'?'#2E9E5B':'#5B4FB0')+'"/><text x="'+x(i)+'" y="'+(y(e[key])-9)+'" font-size="11" text-anchor="middle" fill="#22313F">'+e[key]+'</text>';
+      const d=new Date(e.ts);s+='<text x="'+x(i)+'" y="'+(H-9)+'" font-size="10" text-anchor="middle" fill="#66717E">'+d.getDate()+'/'+(d.getMonth()+1)+'</text>'});
+    return s+'</svg>';
+  }
+  function renderLog(){
+    const rows=log.filter(e=>e.passage===st.passage);
+    $('charts').innerHTML=rows.length?chart(rows,'acc',100,'نسبة الدقة % – '+P().title.split(' (')[0],95)+chart(rows,'wcpm',0,'كلمة صحيحة في الدقيقة'):'<p class="note">لا توجد قياسات لهذا النص بعد. المنحنى يعرض قياسات النص المختار فقط، لتكون المقارنة عادلة.</p>';
+    const f={};rows.forEach(e=>e.errWords.forEach(w=>f[w]=(f[w]||0)+1));
+    const top=Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    $('frequent').innerHTML=top.length?'الكلمات الأكثر خطأ في هذا النص: <span class="ar" style="font-size:18px">'+top.map(x=>esc(x[0])+' ('+x[1]+')').join('، ')+'</span>':'';
+    if(!log.length){$('log').innerHTML='<tr><td class="note">لا توجد قياسات بعد.</td></tr>';return}
+    let h='<tr><th>التاريخ</th><th>النوع</th><th>النص</th><th>الدقة</th><th>ك.ص/د</th><th>الزمن</th><th>الكلمات الخاطئة</th><th>ملاحظات</th><th></th></tr>';
+    log.map((e,i)=>[e,i]).reverse().forEach(([e,i])=>{const[lv,c]=level(e.acc);
+      h+='<tr><td>'+fmtDate(e.ts)+'</td><td>'+e.kind+'</td><td class="ar">'+esc(e.title.split(' (')[0])+'</td><td><b class="lvl '+c+'">'+e.acc+'%</b></td><td>'+(e.wcpm??'—')+'</td><td>'+(e.t?Math.floor(e.t/60)+':'+String(e.t%60).padStart(2,'0'):'—')+'</td><td class="ar">'+(esc(e.errWords.join('، '))||'—')+'</td><td>'+esc(e.notes||'')+'</td><td><button class="mini danger" data-del="'+i+'">×</button></td></tr>'});
+    $('log').innerHTML=h;
+    $('log').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{log.splice(+b.dataset.del,1);store.set('daqqa-log',log);renderLog()});
+  }
+  function save(){
+    const r=result();
+    if(!r.t&&!confirm('لم تُدخلي زمن القراءة، فلن تُحسب الكلمات في الدقيقة. هل تحفظين؟'))return;
+    log.push({ts:Date.now(),name:st.name,kind:$('kind').value,passage:st.passage,title:P().title,acc:r.acc,wcpm:r.wcpm,t:r.t,total:r.total,errors:r.errors,ins:r.ins,sc:r.sc,errWords:r.errWords,notes:$('notes').value.trim()});
+    toast(store.set('daqqa-log',log)?'✓ حُفظ القياس':'تعذّر الحفظ');
+    marks={};$('ins').value=0;$('notes').value='';if($('kind').value==='قبلي')$('kind').value='متكرر';$('tReset').onclick();renderText();calc();renderLog();
+  }
+  function copy(){
+    const L=['التاريخ\tالطالب\tنوع القياس\tالنص\tنسبة الدقة\tكلمة صحيحة في الدقيقة\tالزمن (ث)\tعدد الكلمات\tالأخطاء\tالكلمات الخاطئة\tملاحظات'];
+    log.forEach(e=>L.push([fmtDate(e.ts),e.name,e.kind,e.title.split(' (')[0],e.acc,e.wcpm??'',e.t||'',e.total,e.errors,e.errWords.join(' '),e.notes||''].join('\t')));
+    try{navigator.clipboard.writeText(L.join('\n')).then(()=>toast('نُسخ السجل'),()=>toast('تعذّر النسخ'))}catch(e){toast('تعذّر النسخ')}
+  }
+
+  $('name').value=st.name;
+  $('name').oninput=e=>{st.name=e.target.value.trim()||'مهند';store.set('daqqa-settings',st)};
+  fillPassages();
+  $('passage').onchange=e=>{st.passage=e.target.value;store.set('daqqa-settings',st);marks={};renderText();calc();renderLog()};
+  $('kind').value=log.length?'متكرر':'قبلي';
+  ['min','sec','ins'].forEach(id=>$(id).oninput=calc);
+  $('clearMarks').onclick=()=>{marks={};$('ins').value=0;renderText();calc()};
+  $('audioFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const p=$('player');p.src=URL.createObjectURL(f);p.classList.remove('hidden');
+    p.onloadedmetadata=()=>{if(!timeSec()&&isFinite(p.duration))toast('مدة التسجيل '+Math.round(p.duration)+' ث، استخدمي المؤقت لقياس زمن القراءة نفسها')}};
+  $('save').onclick=save;$('copy').onclick=copy;
+  $('clear').onclick=()=>$('confirm').classList.remove('hidden');
+  $('no').onclick=()=>$('confirm').classList.add('hidden');
+  $('yes').onclick=()=>{log=[];store.set('daqqa-log',log);$('confirm').classList.add('hidden');renderLog();toast('مُسح السجل')};
+  renderText();calc();renderLog();
+  window.__res=result;
+})();
+</script>
+</body>
+</html>
